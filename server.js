@@ -1,4 +1,4 @@
-// server.js (優化配對與防斷線版本)
+// server.js (完美修復變數衝突與特技判定完全體)
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 3000 });
 
@@ -25,7 +25,6 @@ const catsData = {
 };
 
 wss.on('connection', (ws) => {
-    // 清理已經斷開但殘留的無效連線，確保騰出空位給 2P 連入
     players = players.filter(p => p.readyState === WebSocket.OPEN);
 
     if (players.length >= 2) {
@@ -41,7 +40,6 @@ wss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'INIT_ROLE', role: pRole }));
     console.log(`[連線成功] 玩家加入並指派為: ${pRole} (當前連線數: ${players.length})`);
 
-    // 只要有兩個人在線，不管是不是剛重新整理，立刻通知雙方可以開始選角
     if (players.length === 2) {
         broadcast({ type: 'SYSTEM_READY', msg: '雙方玩家已連線，大戰即將開始！' });
     } else {
@@ -52,7 +50,6 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(message);
 
-            // 心跳包回應，防止 Render 免費伺服器自動斷線
             if (data.type === 'PING') {
                 ws.send(JSON.stringify({ type: 'PONG' }));
                 return;
@@ -93,7 +90,6 @@ wss.on('connection', (ws) => {
         if (players.length === 0) {
             resetGame();
         } else {
-            // 如果其中一方斷開，通知剩下的人重新等待
             broadcast({ type: 'SYSTEM', msg: '對手離開了戰局，等待新玩家...' });
             resetGame();
         }
@@ -133,85 +129,48 @@ function settleRound() {
     if (p1Wins > p2Wins) roundWinner = 'p1';
     if (p2Wins > p1Wins) roundWinner = 'p2';
 
+    // 核心修復：移除了此處的重複 let 宣告，改寫為直接賦值
     let dmgToP1 = 0;
     let dmgToP2 = 0;
 
-    if (roundWinner === 'p1') {
-        let baseDmg = 10;
-        let musBonus = c1.mus > c2.mus ? Math.floor((c1.mus - c2.mus) / 5) : 0;
-        let lenDefense = c2.len > c1.len ? (c2.len - c1.len) : 0;
-        dmgToP2 = Math.max(1, baseDmg + musBonus - lenDefense);
-        gameState.p2.hp = Math.max(0, gameState.p2.hp - dmgToP2);
-    } else if (roundWinner === 'p2') {
-        let baseDmg = 10;
-        let musBonus = c2.mus > c1.mus ? Math.floor((c2.mus - c1.mus) / 5) : 0;
-        let lenDefense = c1.len > c2.len ? (c1.len - c2.len) : 0;
-        dmgToP1 = Math.max(1, baseDmg + musBonus - lenDefense);
-        gameState.p1.hp = Math.max(0, gameState.p1.hp - dmgToP1);
-    }
-
-    let p1MpGain = 15 + (c1.int > c2.int ? (c1.int - c2.int) * 5 : 0);
-    let p2MpGain = 15 + (c2.int > c1.int ? (c2.int - c1.int) * 5 : 0);
-
-    gameState.p1.mp = Math.min(100, gameState.p1.mp + p1MpGain);
-    gameState.p2.mp = Math.min(100, gameState.p2.mp + p2MpGain);
-
-    // ==========================================
-    // ✨ 10 大貓武將 專屬特殊技能核心引擎
-    // ==========================================
-    
-    // [大招宣告邏輯] 如果有開大招，在回合結束時將能量歸零
+    // 讀取大招宣告狀態
     let p1Skill = gameState.p1.skillActive ? gameState.p1.char : null;
     let p2Skill = gameState.p2.skillActive ? gameState.p2.char : null;
     if (p1Skill) gameState.p1.mp = 0;
     if (p2Skill) gameState.p2.mp = 0;
 
-    // --- 技能前置發動：主動回血與干擾 ---
-    // 【劉備貓：仁德】立刻補血 20%
+    // 【劉備貓特技：仁德】前置回血
     if (p1Skill === 'lubei') { gameState.p1.hp = Math.min(100, gameState.p1.hp + 20); }
     if (p2Skill === 'lubei') { gameState.p2.hp = Math.min(100, gameState.p2.hp + 20); }
-    
-    // --- 傷害結算與特技加權 ---
-    let dmgToP1 = 0;
-    let dmgToP2 = 0;
 
     if (roundWinner === 'p1') {
-        // 1P 贏了，計算對 2P 的傷害
         let baseDmg = 10;
         let musBonus = c1.mus > c2.mus ? Math.floor((c1.mus - c2.mus) / 5) : 0;
         let lenDefense = c2.len > c1.len ? (c2.len - c1.len) : 0;
 
-        // 【關羽貓：武聖】1P是關羽開大，無視2P統帥防禦
-        if (p1Skill === 'kuanyu') { lenDefense = 0; }
+        if (p1Skill === 'kuanyu') { lenDefense = 0; } // 關羽無視防禦
 
-        // 基礎傷害計算
         dmgToP2 = baseDmg + musBonus - lenDefense;
 
-        // 【張飛貓：咆哮】武力加成翻倍
-        if (p1Skill === 'changfei') { dmgToP2 = baseDmg + (musBonus * 2) - lenDefense; }
-        // 【孫策貓：霸王】總傷害翻倍
-        if (p1Skill === 'suntsu') { dmgToP2 = dmgToP2 * 2; }
+        if (p1Skill === 'changfei') { dmgToP2 = baseDmg + (musBonus * 2) - lenDefense; } // 張飛加成加倍
+        if (p1Skill === 'suntsu') { dmgToP2 = dmgToP2 * 2; } // 孫策傷害加倍
 
-        // 保底傷害判定
         dmgToP2 = Math.max(1, dmgToP2);
 
-        // 【趙雲貓：孤膽】2P是趙雲開大敗北，強制將傷害壓低至保底 1%
-        if (p2Skill === 'zhangyun') { dmgToP2 = 1; }
-        // 【曹操貓：奸雄】2P是曹操開大敗北，強制化解傷害變 0
-        if (p2Skill === 'tsaotsao') { dmgToP2 = 0; roundWinner = '平手(奸雄化解)'; }
+        if (p2Skill === 'zhangyun') { dmgToP2 = 1; } // 趙雲孤膽防禦
+        if (p2Skill === 'tsaotsao') { dmgToP2 = 0; roundWinner = '平手(奸雄化解)'; } // 曹操奸雄化解
 
         gameState.p2.hp = Math.max(0, gameState.p2.hp - dmgToP2);
 
-        // 【司馬懿貓：塚虎】1P是司馬懿開大獲勝，吸取造成傷害的 50% 血量
-        if (p1Skill === 'simayi') { gameState.p1.hp = Math.min(100, gameState.p1.hp + Math.floor(dmgToP2 * 0.5)); }
+        if (p1Skill === 'simayi') { gameState.p1.hp = Math.min(100, gameState.p1.hp + Math.floor(dmgToP2 * 0.5)); } // 司馬懿吸血
 
     } else if (roundWinner === 'p2') {
-        // 2P 贏了，計算對 1P 的傷害
         let baseDmg = 10;
         let musBonus = c2.mus > c1.mus ? Math.floor((c2.mus - c1.mus) / 5) : 0;
         let lenDefense = c1.len > c2.len ? (c1.len - c2.len) : 0;
 
         if (p2Skill === 'kuanyu') { lenDefense = 0; }
+
         dmgToP1 = baseDmg + musBonus - lenDefense;
 
         if (p2Skill === 'changfei') { dmgToP1 = baseDmg + (musBonus * 2) - lenDefense; }
@@ -227,25 +186,19 @@ function settleRound() {
         if (p2Skill === 'simayi') { gameState.p2.hp = Math.min(100, gameState.p2.hp + Math.floor(dmgToP1 * 0.5)); }
     }
 
-    // --- 後置技能：固傷與額外充能 ---
-    // 【周瑜貓：火計】不論勝負，火燒對手固定 10% 血量
+    // 【周瑜貓特技：火計】額外燒傷 10%
     if (p1Skill === 'choyu') { gameState.p2.hp = Math.max(0, gameState.p2.hp - 10); dmgToP2 += 10; }
     if (p2Skill === 'choyu') { gameState.p1.hp = Math.max(0, gameState.p1.hp - 10); dmgToP1 += 10; }
 
-    // 回合基礎充能
+    // 回能公式結算
     let p1MpGain = 15 + (c1.int > c2.int ? (c1.int - c2.int) * 5 : 0);
     let p2MpGain = 15 + (c2.int > c1.int ? (c2.int - c1.int) * 5 : 0);
 
-    // 【諸葛亮貓：神算】大招充能直接翻倍，下回合光速再滿開
-    if (p1Skill === 'kongmin') { p1MpGain = p1MpGain * 2; }
+    if (p1Skill === 'kongmin') { p1MpGain = p1MpGain * 2; } // 諸葛亮雙倍回能
     if (p2Skill === 'kongmin') { p2MpGain = p2MpGain * 2; }
 
     gameState.p1.mp = Math.min(100, gameState.p1.mp + p1MpGain);
     gameState.p2.mp = Math.min(100, gameState.p2.mp + p2MpGain);
-
-    // ==========================================
-    // ✨ 技能判定結束
-    // ==========================================
 
     broadcast({
         type: 'ROUND_RESULT',

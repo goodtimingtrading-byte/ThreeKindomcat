@@ -1,4 +1,4 @@
-// server.js (完美修復變數衝突與特技判定完全體)
+// server.js (防幽靈連線、穩定雙人配對完全體)
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 3000 });
 
@@ -25,25 +25,30 @@ const catsData = {
 };
 
 wss.on('connection', (ws) => {
+    // 1. 強力清理不屬於 OPEN 狀態的幽靈連線
     players = players.filter(p => p.readyState === WebSocket.OPEN);
 
+    // 2. 如果真的滿 2 人了，拒絕後續多餘連線
     if (players.length >= 2) {
-        ws.send(JSON.stringify({ type: 'SYSTEM', msg: '伺服器房間已滿，請稍後再試' }));
+        ws.send(JSON.stringify({ type: 'SYSTEM', msg: '房間已滿（2人正在對戰中），請稍後...' }));
         ws.close();
         return;
     }
 
     players.push(ws);
+    
+    // 3. 根據當前陣列長度動態指派 1P 或 2P
     const pRole = players.length === 1 ? 'p1' : 'p2';
     gameState[pRole].id = pRole;
 
     ws.send(JSON.stringify({ type: 'INIT_ROLE', role: pRole }));
-    console.log(`[連線成功] 玩家加入並指派為: ${pRole} (當前連線數: ${players.length})`);
+    console.log(`[玩家登入] 指派角色: ${pRole} | 目前房間人數: ${players.length}/2`);
 
+    // 4. 當兩人都連進來時，才發送 READY 通知，否則維持等待
     if (players.length === 2) {
-        broadcast({ type: 'SYSTEM_READY', msg: '雙方玩家已連線，大戰即將開始！' });
+        broadcast({ type: 'SYSTEM_READY', msg: '雙方玩家已就位，大戰正式開始！' });
     } else {
-        ws.send(JSON.stringify({ type: 'SYSTEM', msg: '正在等待對手加入...' }));
+        ws.send(JSON.stringify({ type: 'SYSTEM', msg: '正在等待 2P 玩家加入戰局...' }));
     }
 
     ws.on('message', (message) => {
@@ -80,18 +85,25 @@ wss.on('connection', (ws) => {
                 }
             }
         } catch (e) {
-            console.error("解析訊息失敗", e);
+            console.error("處理訊息異常:", e);
         }
     });
 
     ws.on('close', () => {
+        // 玩家斷線時，將其移出名單
         players = players.filter(p => p !== ws);
-        console.log(`[玩家斷線] 剩餘玩家數: ${players.length}`);
+        console.log(`[玩家斷線] 房間剩餘人數: ${players.length}/2`);
+        
         if (players.length === 0) {
             resetGame();
         } else {
-            broadcast({ type: 'SYSTEM', msg: '對手離開了戰局，等待新玩家...' });
+            // 如果還留著一個人，將留著的人強制降格回 1P，並重設戰局等待對手
             resetGame();
+            const remainingPlayer = players[0];
+            if (remainingPlayer && remainingPlayer.readyState === WebSocket.OPEN) {
+                remainingPlayer.send(JSON.stringify({ type: 'INIT_ROLE', role: 'p1' }));
+                remainingPlayer.send(JSON.stringify({ type: 'SYSTEM', msg: '對手已離開，正在重新等待 2P 加入...' }));
+            }
         }
     });
 });
@@ -129,17 +141,14 @@ function settleRound() {
     if (p1Wins > p2Wins) roundWinner = 'p1';
     if (p2Wins > p1Wins) roundWinner = 'p2';
 
-    // 核心修復：移除了此處的重複 let 宣告，改寫為直接賦值
     let dmgToP1 = 0;
     let dmgToP2 = 0;
 
-    // 讀取大招宣告狀態
     let p1Skill = gameState.p1.skillActive ? gameState.p1.char : null;
     let p2Skill = gameState.p2.skillActive ? gameState.p2.char : null;
     if (p1Skill) gameState.p1.mp = 0;
     if (p2Skill) gameState.p2.mp = 0;
 
-    // 【劉備貓特技：仁德】前置回血
     if (p1Skill === 'lubei') { gameState.p1.hp = Math.min(100, gameState.p1.hp + 20); }
     if (p2Skill === 'lubei') { gameState.p2.hp = Math.min(100, gameState.p2.hp + 20); }
 
@@ -148,21 +157,21 @@ function settleRound() {
         let musBonus = c1.mus > c2.mus ? Math.floor((c1.mus - c2.mus) / 5) : 0;
         let lenDefense = c2.len > c1.len ? (c2.len - c1.len) : 0;
 
-        if (p1Skill === 'kuanyu') { lenDefense = 0; } // 關羽無視防禦
+        if (p1Skill === 'kuanyu') { lenDefense = 0; }
 
         dmgToP2 = baseDmg + musBonus - lenDefense;
 
-        if (p1Skill === 'changfei') { dmgToP2 = baseDmg + (musBonus * 2) - lenDefense; } // 張飛加成加倍
-        if (p1Skill === 'suntsu') { dmgToP2 = dmgToP2 * 2; } // 孫策傷害加倍
+        if (p1Skill === 'changfei') { dmgToP2 = baseDmg + (musBonus * 2) - lenDefense; }
+        if (p1Skill === 'suntsu') { dmgToP2 = dmgToP2 * 2; }
 
         dmgToP2 = Math.max(1, dmgToP2);
 
-        if (p2Skill === 'zhangyun') { dmgToP2 = 1; } // 趙雲孤膽防禦
-        if (p2Skill === 'tsaotsao') { dmgToP2 = 0; roundWinner = '平手(奸雄化解)'; } // 曹操奸雄化解
+        if (p2Skill === 'zhangyun') { dmgToP2 = 1; }
+        if (p2Skill === 'tsaotsao') { dmgToP2 = 0; roundWinner = '平手(奸雄化解)'; }
 
         gameState.p2.hp = Math.max(0, gameState.p2.hp - dmgToP2);
 
-        if (p1Skill === 'simayi') { gameState.p1.hp = Math.min(100, gameState.p1.hp + Math.floor(dmgToP2 * 0.5)); } // 司馬懿吸血
+        if (p1Skill === 'simayi') { gameState.p1.hp = Math.min(100, gameState.p1.hp + Math.floor(dmgToP2 * 0.5)); }
 
     } else if (roundWinner === 'p2') {
         let baseDmg = 10;
@@ -186,15 +195,13 @@ function settleRound() {
         if (p2Skill === 'simayi') { gameState.p2.hp = Math.min(100, gameState.p2.hp + Math.floor(dmgToP1 * 0.5)); }
     }
 
-    // 【周瑜貓特技：火計】額外燒傷 10%
     if (p1Skill === 'choyu') { gameState.p2.hp = Math.max(0, gameState.p2.hp - 10); dmgToP2 += 10; }
     if (p2Skill === 'choyu') { gameState.p1.hp = Math.max(0, gameState.p1.hp - 10); dmgToP1 += 10; }
 
-    // 回能公式結算
     let p1MpGain = 15 + (c1.int > c2.int ? (c1.int - c2.int) * 5 : 0);
     let p2MpGain = 15 + (c2.int > c1.int ? (c2.int - c1.int) * 5 : 0);
 
-    if (p1Skill === 'kongmin') { p1MpGain = p1MpGain * 2; } // 諸葛亮雙倍回能
+    if (p1Skill === 'kongmin') { p1MpGain = p1MpGain * 2; }
     if (p2Skill === 'kongmin') { p2MpGain = p2MpGain * 2; }
 
     gameState.p1.mp = Math.min(100, gameState.p1.mp + p1MpGain);

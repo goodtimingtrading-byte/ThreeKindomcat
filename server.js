@@ -156,8 +156,96 @@ function settleRound() {
     gameState.p1.mp = Math.min(100, gameState.p1.mp + p1MpGain);
     gameState.p2.mp = Math.min(100, gameState.p2.mp + p2MpGain);
 
-    if (gameState.p1.skillActive && gameState.p1.char === 'lubei') { gameState.p1.hp = Math.min(100, gameState.p1.hp + 20); gameState.p1.mp = 0; }
-    if (gameState.p2.skillActive && gameState.p2.char === 'lubei') { gameState.p2.hp = Math.min(100, gameState.p2.hp + 20); gameState.p2.mp = 0; }
+    // ==========================================
+    // ✨ 10 大貓武將 專屬特殊技能核心引擎
+    // ==========================================
+    
+    // [大招宣告邏輯] 如果有開大招，在回合結束時將能量歸零
+    let p1Skill = gameState.p1.skillActive ? gameState.p1.char : null;
+    let p2Skill = gameState.p2.skillActive ? gameState.p2.char : null;
+    if (p1Skill) gameState.p1.mp = 0;
+    if (p2Skill) gameState.p2.mp = 0;
+
+    // --- 技能前置發動：主動回血與干擾 ---
+    // 【劉備貓：仁德】立刻補血 20%
+    if (p1Skill === 'lubei') { gameState.p1.hp = Math.min(100, gameState.p1.hp + 20); }
+    if (p2Skill === 'lubei') { gameState.p2.hp = Math.min(100, gameState.p2.hp + 20); }
+    
+    // --- 傷害結算與特技加權 ---
+    let dmgToP1 = 0;
+    let dmgToP2 = 0;
+
+    if (roundWinner === 'p1') {
+        // 1P 贏了，計算對 2P 的傷害
+        let baseDmg = 10;
+        let musBonus = c1.mus > c2.mus ? Math.floor((c1.mus - c2.mus) / 5) : 0;
+        let lenDefense = c2.len > c1.len ? (c2.len - c1.len) : 0;
+
+        // 【關羽貓：武聖】1P是關羽開大，無視2P統帥防禦
+        if (p1Skill === 'kuanyu') { lenDefense = 0; }
+
+        // 基礎傷害計算
+        dmgToP2 = baseDmg + musBonus - lenDefense;
+
+        // 【張飛貓：咆哮】武力加成翻倍
+        if (p1Skill === 'changfei') { dmgToP2 = baseDmg + (musBonus * 2) - lenDefense; }
+        // 【孫策貓：霸王】總傷害翻倍
+        if (p1Skill === 'suntsu') { dmgToP2 = dmgToP2 * 2; }
+
+        // 保底傷害判定
+        dmgToP2 = Math.max(1, dmgToP2);
+
+        // 【趙雲貓：孤膽】2P是趙雲開大敗北，強制將傷害壓低至保底 1%
+        if (p2Skill === 'zhangyun') { dmgToP2 = 1; }
+        // 【曹操貓：奸雄】2P是曹操開大敗北，強制化解傷害變 0
+        if (p2Skill === 'tsaotsao') { dmgToP2 = 0; roundWinner = '平手(奸雄化解)'; }
+
+        gameState.p2.hp = Math.max(0, gameState.p2.hp - dmgToP2);
+
+        // 【司馬懿貓：塚虎】1P是司馬懿開大獲勝，吸取造成傷害的 50% 血量
+        if (p1Skill === 'simayi') { gameState.p1.hp = Math.min(100, gameState.p1.hp + Math.floor(dmgToP2 * 0.5)); }
+
+    } else if (roundWinner === 'p2') {
+        // 2P 贏了，計算對 1P 的傷害
+        let baseDmg = 10;
+        let musBonus = c2.mus > c1.mus ? Math.floor((c2.mus - c1.mus) / 5) : 0;
+        let lenDefense = c1.len > c2.len ? (c1.len - c2.len) : 0;
+
+        if (p2Skill === 'kuanyu') { lenDefense = 0; }
+        dmgToP1 = baseDmg + musBonus - lenDefense;
+
+        if (p2Skill === 'changfei') { dmgToP1 = baseDmg + (musBonus * 2) - lenDefense; }
+        if (p2Skill === 'suntsu') { dmgToP1 = dmgToP1 * 2; }
+
+        dmgToP1 = Math.max(1, dmgToP1);
+
+        if (p1Skill === 'zhangyun') { dmgToP1 = 1; }
+        if (p1Skill === 'tsaotsao') { dmgToP1 = 0; roundWinner = '平手(奸雄化解)'; }
+
+        gameState.p1.hp = Math.max(0, gameState.p1.hp - dmgToP1);
+
+        if (p2Skill === 'simayi') { gameState.p2.hp = Math.min(100, gameState.p2.hp + Math.floor(dmgToP1 * 0.5)); }
+    }
+
+    // --- 後置技能：固傷與額外充能 ---
+    // 【周瑜貓：火計】不論勝負，火燒對手固定 10% 血量
+    if (p1Skill === 'choyu') { gameState.p2.hp = Math.max(0, gameState.p2.hp - 10); dmgToP2 += 10; }
+    if (p2Skill === 'choyu') { gameState.p1.hp = Math.max(0, gameState.p1.hp - 10); dmgToP1 += 10; }
+
+    // 回合基礎充能
+    let p1MpGain = 15 + (c1.int > c2.int ? (c1.int - c2.int) * 5 : 0);
+    let p2MpGain = 15 + (c2.int > c1.int ? (c2.int - c1.int) * 5 : 0);
+
+    // 【諸葛亮貓：神算】大招充能直接翻倍，下回合光速再滿開
+    if (p1Skill === 'kongmin') { p1MpGain = p1MpGain * 2; }
+    if (p2Skill === 'kongmin') { p2MpGain = p2MpGain * 2; }
+
+    gameState.p1.mp = Math.min(100, gameState.p1.mp + p1MpGain);
+    gameState.p2.mp = Math.min(100, gameState.p2.mp + p2MpGain);
+
+    // ==========================================
+    // ✨ 技能判定結束
+    // ==========================================
 
     broadcast({
         type: 'ROUND_RESULT',

@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>三國貓武將：江山連線對決</title>
+    <title>三國貓武將：江山對決連線版</title>
     <style>
+        /* 嚴格限制單螢幕不捲動，適配平板與電腦 */
         body {
             background-color: #121212;
             color: #ffffff;
@@ -20,11 +21,12 @@
             overflow: hidden;
             user-select: none;
         }
+
         h1 { color: #d4af37; text-shadow: 0 0 10px rgba(212, 175, 55, 0.5); font-size: 18px; margin: 2px 0; }
         p#system-status { margin: 2px 0 4px 0; font-size: 12px; color: #ffcc00; }
         .hidden { display: none !important; }
 
-        /* 選角畫面 */
+        /* ================= 階段一：選角畫面 ================= */
         .select-container { display: flex; flex-direction: column; align-items: center; width: 95%; max-width: 900px; gap: 8px; height: calc(100vh - 40px); justify-content: center;}
         .preview-zone { display: flex; justify-content: space-between; width: 100%; height: 180px; gap: 15px; }
         .player-box { flex: 1; background: #222; border: 2px solid #444; border-radius: 8px; display: flex; padding: 8px; gap: 12px; position: relative; }
@@ -46,8 +48,10 @@
         .lock-btn { width: 160px; padding: 8px; background: #d4af37; border: none; color: #111; font-weight: bold; font-size: 13px; border-radius: 5px; cursor: pointer; }
         .lock-btn:disabled { background: #555; color: #aaa; cursor: not-allowed; }
 
-        /* 左右對戰畫面 */
+        /* ================= 階段二：左右對戰畫面 ================= */
         .battle-container { width: 100%; max-width: 1024px; height: calc(100vh - 35px); display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* 橫向街機對戰大舞台（置入軍帳背景） */
         .battle-stage {
             position: relative;
             width: 100%;
@@ -64,15 +68,20 @@
             padding: 0 40px;
             box-sizing: border-box;
         }
+
+        /* 呼吸待機與受擊閃爍 */
         @keyframes floating { 0% { transform: translateY(0px); } 50% { transform: translateY(-5px); } 100% { transform: translateY(0px); } }
         @keyframes hurt-flash { 0%, 100% { opacity: 1; filter: brightness(1); } 25%, 75% { opacity: 0.3; filter: brightness(3) sepia(1) hue-rotate(-50deg) saturate(5); } }
         .animate-idle { animation: floating 2.5s ease-in-out infinite; }
         .animate-hurt { animation: hurt-flash 0.4s ease-in-out 1; }
+
+        /* 左右角色立繪包裝 */
         .stage-char-box { width: 160px; height: 180px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 10px; }
         .stage-sprite { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.9); }
         .sprite-left { border: 4px solid #ff3e3e; }
-        .sprite-right { border: 4px solid #3e8eff; transform: scaleX(-1); }
+        .sprite-right { border: 4px solid #3e8eff; transform: scaleX(-1); } /* 敵方自動翻轉面向左側 */
 
+        /* 中間：回合制亮牌槽線 */
         .clash-arena {
             position: absolute;
             top: 10px;
@@ -87,23 +96,65 @@
             z-index: 10;
         }
         .clash-slot { width: 85px; text-align: center; font-size: 11px; color: #ccc; }
-        .bottom-control-zone { display: flex; justify-content: space-between; height: 44%; width: 100%; gap: 10px; }
-        .side-panel { flex: 1; background: #1e1e1e; border-radius: 8px; border: 2px solid #333; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
+
+        /* 下方：垂直結構操作與資訊區（平板握持最佳化） */
+        .bottom-control-zone {
+            display: flex;
+            justify-content: space-between;
+            height: 44%;
+            width: 100%;
+            gap: 10px;
+        }
+
+        /* 左右兩側獨立的狀態與出牌面板 */
+        .side-panel {
+            flex: 1;
+            background: #1e1e1e;
+            border-radius: 8px;
+            border: 2px solid #333;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
         #p1-side-panel { border-color: #ff3e3e; }
         #p2-side-panel { border-color: #3e8eff; }
+
+        /* 條狀資訊 */
         .bar-row { margin: 2px 0; }
         .bar-header { font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 2px; }
         .side-hp-bar { height: 12px; background: #333; border-radius: 6px; overflow: hidden; border: 1px solid #555; }
         .side-hp-fill { height: 100%; background: linear-gradient(90deg, #51ff00, #a2ff00); width: 100%; transition: width 0.4s; }
         .side-mp-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
         .side-mp-fill { height: 100%; background: linear-gradient(90deg, #00c6ff, #0072ff); width: 0%; transition: width 0.4s; }
+
+        /* 迷你排組槽 */
         .mini-slots-row { display: flex; gap: 6px; justify-content: center; margin: 4px 0; }
         .mini-card-slot { width: 65px; height: 35px; background: #111; border: 1px solid #555; border-radius: 4px; text-align: center; font-size: 10px; padding-top: 2px; box-sizing: border-box; }
-        .skill-toggle-btn { width: 100%; padding: 5px; font-weight: bold; font-size: 11px; border-radius: 4px; border: 1px solid #555; background: #333; color: #666; cursor: pointer; text-align: center; }
+
+        /* 大招宣告按鈕 */
+        .skill-toggle-btn {
+            width: 100%; padding: 5px; font-weight: bold; font-size: 11px; border-radius: 4px; border: 1px solid #555; background: #333; color: #666; cursor: pointer; text-align: center;
+        }
         .skill-toggle-btn.ready { background: #5c3c00; border-color: #d4af37; color: #ffcc00; }
         .skill-toggle-btn.active { background: #ff9900; border-color: #fff; color: #fff; }
+
         .choose-card-btn { padding: 5px 0; font-size: 12px; cursor: pointer; background: #444; border: 1px solid #666; color: white; border-radius: 4px; }
-        .center-log-box { width: 32%; background: #000; border: 1px solid #444; padding: 6px; font-family: monospace; font-size: 10px; color: #00ff00; border-radius: 8px; overflow-y: auto; box-sizing: border-box; }
+        
+        /* 中間的獨立戰報 Log */
+        .center-log-box {
+            width: 32%;
+            background: #000;
+            border: 1px solid #444;
+            padding: 6px;
+            font-family: monospace;
+            font-size: 10px;
+            color: #00ff00;
+            border-radius: 8px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
@@ -111,7 +162,6 @@
     <h1 id="game-title">⚔️ 三國貓武將：江山對決 ⚔️</h1>
     <p id="system-status">正在連線至雲端裁判...</p>
 
-    <!-- 階段一：選角介面 -->
     <div id="select-screen" class="select-container hidden">
         <div class="preview-zone">
             <div class="player-box active-1p" id="p1-box">
@@ -136,7 +186,6 @@
         <button class="lock-btn" id="lock-btn" disabled>確認鎖定武將</button>
     </div>
 
-    <!-- 階段二：左右對戰畫面 -->
     <div id="battle-screen" class="battle-container hidden">
         <div class="battle-stage">
             <div class="clash-arena">
@@ -149,7 +198,6 @@
         </div>
 
         <div class="bottom-control-zone">
-            <!-- 左側：我方掌控面板 -->
             <div class="side-panel" id="p1-side-panel">
                 <div>
                     <div style="font-weight:bold; font-size:12px; color:#ff3e3e;" id="pk-h-name">我方貓武將</div>
@@ -178,13 +226,11 @@
                 </div>
             </div>
 
-            <!-- 中央：戰報 -->
             <div class="center-log-box" id="log-box">
                 <span style="color:#ffcc00; font-weight:bold;" id="round-title">第 1 / 10 回合</span><br>
                 [系統] 兩軍就位，請博弈下棋...<br>
             </div>
 
-            <!-- 右側：敵方面板 -->
             <div class="side-panel" id="p2-side-panel">
                 <div>
                     <div style="font-weight:bold; font-size:12px; color:#3e8eff; text-align:right;" id="pk-e-name">敵方貓武將</div>
@@ -212,6 +258,7 @@
     </div>
 
     <script>
+        // 🚀 連接雲端裁判網址 (請確保此網址正確)
         const ws = new WebSocket("wss://threekindomcat.onrender.com");
 
         let myRole = null; 
@@ -220,7 +267,7 @@
         let activeSlotIndex = 0; 
         let isSkillDeclared = false; 
         let canUseSkill = false;     
-        let isLocked = false; // 核心：紀錄玩家是否點擊了「確認鎖定武將」
+        let isLocked = false; // 紀錄玩家是否已按下「確認鎖定武將」
 
         const catsData = {
             "lubu": { name: "呂布貓", stats: [85, 100, 26], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" },
@@ -235,6 +282,7 @@
             "suntsu": { name: "孫策貓", stats: [92, 92, 70], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SunTsu.png" }
         };
 
+        // 建立選角格子
         const grid = document.getElementById('grid-container');
         Object.keys(catsData).forEach(key => {
             const cat = catsData[key];
@@ -244,11 +292,11 @@
             div.innerHTML = `<img src="${cat.img}"><div class="char-name-tag">${cat.name}</div>`;
             
             div.addEventListener('click', () => {
-                if (isLocked) return; // 修復漏洞：一旦確認鎖定，點擊九宮格無效
+                if (isLocked) return; // 一旦確認鎖定，點擊無效，防止人物中途變更
 
                 selectedChar = key;
                 
-                // 清除上一個高亮
+                // 點擊高亮特效
                 document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('current-chosen'));
                 div.classList.add('current-chosen');
 
@@ -268,25 +316,51 @@
         });
 
         document.getElementById('lock-btn').addEventListener('click', () => {
-            isLocked = true; // 狀態標記為已鎖定
+            isLocked = true; 
             ws.send(JSON.stringify({ type: 'SELECT_LOCK', role: myRole, charId: selectedChar }));
             document.getElementById('lock-btn').innerText = "已鎖定，等候對手中...";
             document.getElementById('lock-btn').disabled = true;
         });
 
+        // ================= WebSocket 連線通訊 =================
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
 
             if (data.type === 'INIT_ROLE') {
                 myRole = data.role;
                 document.getElementById('system-status').innerText = `連線成功！指派為戰場 ${myRole.toUpperCase()}`;
+                
+                // 核心優化：當收到新身分(或對手斷線大倒帶)時，重置選角鎖定狀態
+                isLocked = false;
+                document.getElementById('lock-btn').innerText = "確認鎖定武將";
+                document.getElementById('lock-btn').disabled = true;
+                document.getElementById('p1-name').innerText = "請選擇...";
+                document.getElementById('p1-avatar').src = "";
+                document.getElementById('p2-name').innerText = "等待對手加入...";
+                document.getElementById('p2-avatar').src = "";
+                document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('current-chosen'));
+                
+                // 確保退回大廳畫面
+                document.getElementById('select-screen').classList.remove('hidden');
+                document.getElementById('battle-screen').classList.add('hidden');
+
                 if(myRole === 'p2') {
                     document.getElementById('p1-box').children[0].innerText = "1P (對手)";
                     document.getElementById('p2-box').children[0].innerText = "2P (你)";
+                } else {
+                    document.getElementById('p1-box').children[0].innerText = "1P (你)";
+                    document.getElementById('p2-box').children[0].innerText = "2P (對手)";
                 }
             }
             if (data.type === 'SYSTEM') {
                 document.getElementById('system-status').innerText = data.msg;
+                
+                // 如果對戰中對手突發重整斷線，後端宣告「重新等待」，強制推回選角畫面
+                if (data.msg.includes('重新等待')) {
+                    document.getElementById('select-screen').classList.remove('hidden');
+                    document.getElementById('battle-screen').classList.add('hidden');
+                    document.getElementById('game-title').innerText = "⚔️ 三國貓武將：江山對決 ⚔️";
+                }
             }
             if (data.type === 'SYSTEM_READY') {
                 document.getElementById('system-status').innerText = data.msg;
@@ -300,6 +374,8 @@
                 document.getElementById('p2-avatar').src = catsData[data.charId].img;
                 document.getElementById('p2-name').innerText = catsData[data.charId].name + " 🔒已選定";
             }
+            
+            // 雙方選定，切入對戰畫面
             if (data.type === 'START_GAME') {
                 document.getElementById('select-screen').classList.add('hidden');
                 document.getElementById('battle-screen').classList.remove('hidden');
@@ -328,6 +404,7 @@
                     document.getElementById(`clash-${i}`).innerText = `${mapMove(myMoves[i])} vs ${mapMove(opMoves[i])}`;
                 }
 
+                // 受擊閃爍效果觸發
                 if ((myRole === 'p1' && data.dmgToP1 > 0) || (myRole === 'p2' && data.dmgToP2 > 0)) {
                     triggerHurtAnimation('pk-hero-img');
                 } else if ((myRole === 'p1' && data.dmgToP2 > 0) || (myRole === 'p2' && data.dmgToP1 > 0)) {
@@ -348,13 +425,14 @@
             }
         };
 
-        // 定時心跳包，維持 Render WebSocket 聯網不斷線
+        // 定時心跳包，防止 Render 免費伺服器中途自動斷開連線
         setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'PING' }));
             }
         }, 20000);
 
+        // ================= 戰鬥出棋與大招控制 =================
         function selectMove(moveType) {
             if (activeSlotIndex > 2) return;
             myCurrentMoves[activeSlotIndex] = moveType;

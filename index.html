@@ -79,7 +79,7 @@
         .stage-char-box { width: 160px; height: 180px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 10px; }
         .stage-sprite { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.9); }
         .sprite-left { border: 4px solid #ff3e3e; }
-        .sprite-right { border: 4px solid #3e8eff; transform: scaleX(-1); } /* 敵方自動翻轉面向左側 */
+        .sprite-right { border: 4px solid #3e8eff; transform: scaleX(-1); }
 
         /* 中間：回合制亮牌槽線 */
         .clash-arena {
@@ -97,64 +97,24 @@
         }
         .clash-slot { width: 85px; text-align: center; font-size: 11px; color: #ccc; }
 
-        /* 下方：垂直結構操作與資訊區（平板握持最佳化） */
-        .bottom-control-zone {
-            display: flex;
-            justify-content: space-between;
-            height: 44%;
-            width: 100%;
-            gap: 10px;
-        }
-
-        /* 左右兩側獨立的狀態與出牌面板 */
-        .side-panel {
-            flex: 1;
-            background: #1e1e1e;
-            border-radius: 8px;
-            border: 2px solid #333;
-            padding: 6px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-sizing: border-box;
-        }
+        /* 下方操作與資訊區 */
+        .bottom-control-zone { display: flex; justify-content: space-between; height: 44%; width: 100%; gap: 10px; }
+        .side-panel { flex: 1; background: #1e1e1e; border-radius: 8px; border: 2px solid #333; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
         #p1-side-panel { border-color: #ff3e3e; }
         #p2-side-panel { border-color: #3e8eff; }
-
-        /* 條狀資訊 */
         .bar-row { margin: 2px 0; }
         .bar-header { font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 2px; }
         .side-hp-bar { height: 12px; background: #333; border-radius: 6px; overflow: hidden; border: 1px solid #555; }
         .side-hp-fill { height: 100%; background: linear-gradient(90deg, #51ff00, #a2ff00); width: 100%; transition: width 0.4s; }
         .side-mp-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
         .side-mp-fill { height: 100%; background: linear-gradient(90deg, #00c6ff, #0072ff); width: 0%; transition: width 0.4s; }
-
-        /* 迷你排組槽 */
         .mini-slots-row { display: flex; gap: 6px; justify-content: center; margin: 4px 0; }
         .mini-card-slot { width: 65px; height: 35px; background: #111; border: 1px solid #555; border-radius: 4px; text-align: center; font-size: 10px; padding-top: 2px; box-sizing: border-box; }
-
-        /* 大招宣告按鈕 */
-        .skill-toggle-btn {
-            width: 100%; padding: 5px; font-weight: bold; font-size: 11px; border-radius: 4px; border: 1px solid #555; background: #333; color: #666; cursor: pointer; text-align: center;
-        }
+        .skill-toggle-btn { width: 100%; padding: 5px; font-weight: bold; font-size: 11px; border-radius: 4px; border: 1px solid #555; background: #333; color: #666; cursor: pointer; text-align: center; }
         .skill-toggle-btn.ready { background: #5c3c00; border-color: #d4af37; color: #ffcc00; }
         .skill-toggle-btn.active { background: #ff9900; border-color: #fff; color: #fff; }
-
         .choose-card-btn { padding: 5px 0; font-size: 12px; cursor: pointer; background: #444; border: 1px solid #666; color: white; border-radius: 4px; }
-        
-        /* 中間的獨立戰報 Log */
-        .center-log-box {
-            width: 32%;
-            background: #000;
-            border: 1px solid #444;
-            padding: 6px;
-            font-family: monospace;
-            font-size: 10px;
-            color: #00ff00;
-            border-radius: 8px;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
+        .center-log-box { width: 32%; background: #000; border: 1px solid #444; padding: 6px; font-family: monospace; font-size: 10px; color: #00ff00; border-radius: 8px; overflow-y: auto; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -258,7 +218,7 @@
     </div>
 
     <script>
-        // 🚀 連接雲端裁判網址 (請確保此網址正確)
+        // 連接雲端裁判網址
         const ws = new WebSocket("wss://threekindomcat.onrender.com");
 
         let myRole = null; 
@@ -267,7 +227,23 @@
         let activeSlotIndex = 0; 
         let isSkillDeclared = false; 
         let canUseSkill = false;     
-        let isLocked = false; // 紀錄玩家是否已按下「確認鎖定武將」
+        let isLocked = false; 
+
+        // ================= 🎵 核心音效音軌引擎初始化 =================
+        const audioMenu = new Audio("https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/The_Iron_Banner.mp3");
+        const audioBattle = new Audio("https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Jade_and_Iron.mp3"); // 已轉為raw直讀連結
+        
+        audioMenu.loop = true;
+        audioBattle.loop = true;
+        audioMenu.volume = 0.5; // 設定適中音量
+        audioBattle.volume = 0.5;
+
+        // 音樂播放安全防鎖功能
+        function startMenuMusic() {
+            if (audioMenu.paused && audioBattle.paused) {
+                audioMenu.play().catch(e => console.log("等待玩家點擊互動以播放音樂"));
+            }
+        }
 
         const catsData = {
             "lubu": { name: "呂布貓", stats: [85, 100, 26], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" },
@@ -292,11 +268,13 @@
             div.innerHTML = `<img src="${cat.img}"><div class="char-name-tag">${cat.name}</div>`;
             
             div.addEventListener('click', () => {
-                if (isLocked) return; // 一旦確認鎖定，點擊無效，防止人物中途變更
+                // 只要玩家點選任何一隻貓，立刻觸發瀏覽器安全解鎖播放大廳BGM
+                startMenuMusic();
+
+                if (isLocked) return; 
 
                 selectedChar = key;
                 
-                // 點擊高亮特效
                 document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('current-chosen'));
                 div.classList.add('current-chosen');
 
@@ -316,6 +294,7 @@
         });
 
         document.getElementById('lock-btn').addEventListener('click', () => {
+            startMenuMusic(); // 再次確保解鎖音樂
             isLocked = true; 
             ws.send(JSON.stringify({ type: 'SELECT_LOCK', role: myRole, charId: selectedChar }));
             document.getElementById('lock-btn').innerText = "已鎖定，等候對手中...";
@@ -330,7 +309,7 @@
                 myRole = data.role;
                 document.getElementById('system-status').innerText = `連線成功！指派為戰場 ${myRole.toUpperCase()}`;
                 
-                // 核心優化：當收到新身分(或對手斷線大倒帶)時，重置選角鎖定狀態
+                // 斷線大倒帶：重置所有選角鎖定狀態
                 isLocked = false;
                 document.getElementById('lock-btn').innerText = "確認鎖定武將";
                 document.getElementById('lock-btn').disabled = true;
@@ -340,7 +319,11 @@
                 document.getElementById('p2-avatar').src = "";
                 document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('current-chosen'));
                 
-                // 確保退回大廳畫面
+                // 斷線切換：停止戰鬥音樂，切回大廳音樂
+                audioBattle.pause();
+                audioBattle.currentTime = 0;
+                audioMenu.play().catch(e => {});
+
                 document.getElementById('select-screen').classList.remove('hidden');
                 document.getElementById('battle-screen').classList.add('hidden');
 
@@ -355,8 +338,12 @@
             if (data.type === 'SYSTEM') {
                 document.getElementById('system-status').innerText = data.msg;
                 
-                // 如果對戰中對手突發重整斷線，後端宣告「重新等待」，強制推回選角畫面
                 if (data.msg.includes('重新等待')) {
+                    // 對手跑掉，強制切換回大廳音樂與畫面
+                    audioBattle.pause();
+                    audioBattle.currentTime = 0;
+                    audioMenu.play().catch(e => {});
+
                     document.getElementById('select-screen').classList.remove('hidden');
                     document.getElementById('battle-screen').classList.add('hidden');
                     document.getElementById('game-title').innerText = "⚔️ 三國貓武將：江山對決 ⚔️";
@@ -375,8 +362,13 @@
                 document.getElementById('p2-name').innerText = catsData[data.charId].name + " 🔒已選定";
             }
             
-            // 雙方選定，切入對戰畫面
+            // 雙方選定，進入對戰畫面（轉換BGM）
             if (data.type === 'START_GAME') {
+                // 🎵 音樂切換：大廳關閉 ➔ 戰鬥開啟
+                audioMenu.pause();
+                audioMenu.currentTime = 0;
+                audioBattle.play().catch(e => console.log("播放戰鬥音樂受阻"));
+
                 document.getElementById('select-screen').classList.add('hidden');
                 document.getElementById('battle-screen').classList.remove('hidden');
                 
@@ -404,7 +396,6 @@
                     document.getElementById(`clash-${i}`).innerText = `${mapMove(myMoves[i])} vs ${mapMove(opMoves[i])}`;
                 }
 
-                // 受擊閃爍效果觸發
                 if ((myRole === 'p1' && data.dmgToP1 > 0) || (myRole === 'p2' && data.dmgToP2 > 0)) {
                     triggerHurtAnimation('pk-hero-img');
                 } else if ((myRole === 'p1' && data.dmgToP2 > 0) || (myRole === 'p2' && data.dmgToP1 > 0)) {
@@ -425,7 +416,7 @@
             }
         };
 
-        // 定時心跳包，防止 Render 免費伺服器中途自動斷開連線
+        // 定時心跳包
         setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'PING' }));

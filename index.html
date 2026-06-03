@@ -4,62 +4,112 @@
     <meta charset="UTF-8">
     <title>三國貓對戰</title>
     <style>
-        /* 基礎設定 */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:sans-serif; background:#000; color:#fff; }
+        .scene { display:none; width:100vw; height:100vh; position:absolute; flex-direction:column; align-items:center; justify-content:center; }
+        .active { display:flex; }
         
-        /* 背景影片層：確保它永遠在最底層 */
-        #video-bg { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            object-fit: cover; z-index: -1; 
-        }
-
-        /* 場景區塊設定 */
-        .scene { display: none; width: 100vw; height: 100vh; align-items: center; justify-content: center; flex-direction: column; color: white; }
-        .active { display: flex; }
-
-        /* 選角格線系統 */
-        .char-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 15px; }
-        .char-card { width: 120px; height: 120px; object-fit: cover; cursor: pointer; border: 3px solid white; transition: 0.3s; }
-        .char-card:hover { transform: scale(1.1); border-color: gold; }
+        #video-bg { position:fixed; width:100%; height:100%; object-fit:cover; z-index:-1; }
+        #battle-bg { position:fixed; width:100%; height:100%; object-fit:cover; z-index:-1; }
+        
+        .char-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; background:rgba(0,0,0,0.6); padding:30px; border-radius:15px; }
+        .char-card { width:120px; height:120px; border:3px solid #fff; cursor:pointer; transition:0.3s; }
+        .char-card:hover { transform:scale(1.1); border-color:gold; }
+        
+        #battle-field { display:flex; justify-content:space-between; width:90%; align-items:center; z-index:1; }
+        .side { width:40%; text-align:center; background:rgba(0,0,0,0.5); padding:20px; border-radius:10px; }
+        .char-portrait { width:200px; height:200px; border:5px solid gold; margin-bottom:10px; }
+        #mute-btn { position:absolute; top:20px; right:20px; z-index:10; padding:10px 20px; background:rgba(0,0,0,0.6); color:white; border:1px solid white; cursor:pointer; }
     </style>
 </head>
 <body>
 
-    <video id="video-bg" autoplay loop muted playsinline>
-        <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
-    </video>
-
     <div id="scene-start" class="scene active">
-        <h1 style="text-shadow: 2px 2px 10px black;">三國貓對戰</h1>
-        <button onclick="document.getElementById('scene-start').className='scene'; document.getElementById('scene-lobby').className='scene active';">進入大廳</button>
+        <video id="video-bg" loop playsinline>
+            <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
+        </video>
+        <button id="mute-btn" onclick="toggleMute()">切換聲音</button>
+        <h1>三國貓對戰</h1>
+        <input id="username" placeholder="輸入名稱">
+        <button onclick="enterLobby()">進入大廳</button>
     </div>
 
     <div id="scene-lobby" class="scene">
-        <h2>選擇您的貓武將</h2>
+        <h2>選擇您的武將</h2>
         <div class="char-grid" id="char-list"></div>
     </div>
 
     <div id="scene-battle" class="scene">
-        <div id="webcam-container"></div>
-        <div id="status" style="background:rgba(0,0,0,0.7); padding:10px;">請將鏡頭對準手勢</div>
+        <img id="battle-bg" src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/background.png?raw=true">
+        <div id="battle-field">
+            <div class="side" id="p1-side">
+                <img id="p1-char" class="char-portrait">
+                <h3>我方</h3>
+                <div>
+                    <button onclick="submitMove('Rock')">石頭</button>
+                    <button onclick="submitMove('Paper')">布</button>
+                    <button onclick="submitMove('Scissor')">剪刀</button>
+                </div>
+                <div id="webcam-container" style="width:150px; height:150px; margin:10px auto;"></div>
+            </div>
+            <div class="side" id="p2-side">
+                <img id="p2-char" class="char-portrait">
+                <h3>敵方</h3>
+                <div id="p2-status">等待中...</div>
+            </div>
+        </div>
     </div>
 
-    <script>
-        const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
-        const charList = document.getElementById('char-list');
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-        // 動態生成選角卡片
+    <script>
+        const socket = io();
+        const video = document.getElementById('video-bg');
+        
+        // 播放控制
+        document.body.addEventListener('click', () => { if(video.paused) video.play(); }, { once: true });
+        function toggleMute() { video.muted = !video.muted; }
+
+        function enterLobby() {
+            document.getElementById('scene-start').className = 'scene';
+            document.getElementById('scene-lobby').className = 'scene active';
+        }
+
+        const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
         chars.forEach(c => {
             const img = document.createElement('img');
             img.src = `https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/${c}.png?raw=true`;
             img.className = 'char-card';
             img.onclick = () => {
+                document.getElementById('p1-char').src = img.src;
                 document.getElementById('scene-lobby').className = 'scene';
                 document.getElementById('scene-battle').className = 'scene active';
-                // 這裡觸發你的 initAI()
+                initAI();
             };
-            charList.appendChild(img);
+            document.getElementById('char-list').appendChild(img);
         });
+
+        function submitMove(move) { socket.emit('submitHands', { roomId: 'room1', hands: [move] }); }
+
+        async function initAI() {
+            const model = await tmImage.load("./my_model/model.json", "./my_model/metadata.json");
+            const webcam = new tmImage.Webcam(150, 150, true);
+            await webcam.setup(); await webcam.play();
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            
+            async function loop() {
+                webcam.update();
+                const pred = await model.predict(webcam.canvas);
+                let best = pred.reduce((p, c) => (p.probability > c.probability) ? p : c);
+                if (best.probability > 0.95) {
+                    submitMove(best.className);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
     </script>
 </body>
 </html>

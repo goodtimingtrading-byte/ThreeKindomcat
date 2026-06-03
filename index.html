@@ -3,248 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三國貓武將：經典對戰選角畫面</title>
+    <title>三國貓對戰 - AI 訓練場</title>
     <style>
-        /* 復古街機暗色背景 */
-        body {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            font-family: 'Arial', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            overflow-x: hidden;
-        }
-
-        h1 {
-            color: #d4af37;
-            text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
-            letter-spacing: 4px;
-            margin-bottom: 10px;
-        }
-
-        /* 主選角容器 */
-        .select-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 90%;
-            max-width: 1000px;
-            gap: 20px;
-        }
-
-        /* 上方 1P vs 2P 預覽區 */
-        .preview-zone {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            height: 320px; /* 符合 9:16 比例的大圖展示 */
-            gap: 40px;
-        }
-
-        .player-box {
-            flex: 1;
-            background: #262626;
-            border: 3px solid #444;
-            border-radius: 8px;
-            display: flex;
-            padding: 15px;
-            gap: 20px;
-            position: relative;
-        }
-
-        .player-box.active-1p { border-color: #ff3e3e; box-shadow: 0 0 15px rgba(255, 62, 62, 0.4); }
-        .player-box.active-2p { border-color: #3e8eff; box-shadow: 0 0 15px rgba(62, 142, 255, 0.4); }
-
-        .big-avatar-wrapper {
-            width: 150px;
-            height: 266px; /* 完美契合 9:16 */
-            background: #111;
-            border-radius: 4px;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #555;
-        }
-
-        .big-avatar {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.2s;
-        }
-
-        /* 屬性數值條區塊 */
-        .status-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .stat-row {
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-        }
-
-        .stat-label { width: 40px; color: #aaa; font-weight: bold; }
-        .stat-bar-bg { flex: 1; background: #444; height: 12px; border-radius: 6px; overflow: hidden; margin: 0 10px; }
-        .stat-bar-fill { height: 100%; background: #d4af37; width: 0%; transition: width 0.3s ease; }
-        .stat-value { width: 30px; text-align: right; font-family: monospace; font-weight: bold; }
-
-        /* 中間 2 x 5 街機選角九宮格 */
-        .character-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 15px;
-            width: 100%;
-            background: #222;
-            padding: 20px;
-            border-radius: 10px;
-            border: 2px solid #d4af37;
-        }
-
-        .grid-item {
-            aspect-ratio: 1 / 1;
-            background: #333;
-            border: 2px solid #555;
-            border-radius: 6px;
-            cursor: pointer;
-            overflow: hidden;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-
-        .grid-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: top;
-        }
-
-        /* 滑鼠懸停與發光特效 */
-        .grid-item:hover {
-            transform: scale(1.05);
-            border-color: #ff3e3e;
-            box-shadow: 0 0 15px #ff3e3e;
-        }
-
-        .grid-item.selected {
-            border-color: #d4af37;
-            box-shadow: 0 0 20px #d4af37;
-        }
-
-        .char-name-tag {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.7);
-            text-align: center;
-            font-size: 12px;
-            padding: 4px 0;
-            color: #ddd;
-        }
+        body { font-family: 'Arial', sans-serif; text-align: center; background: #2c3e50; color: white; padding: 20px; }
+        #webcam-container { margin: 20px auto; border: 5px solid #ecf0f1; border-radius: 15px; width: 200px; height: 200px; overflow: hidden; }
+        .battle-area { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
+        .hand-slot { width: 120px; height: 120px; border: 3px dashed #bdc3c7; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; background: rgba(255,255,255,0.1); }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #e74c3c; color: white; border: none; border-radius: 5px; }
+        #status { margin: 15px; font-size: 1.2rem; color: #f1c40f; }
     </style>
 </head>
 <body>
 
-    <h1>SELECT YOUR CAT WARRIOR</h1>
-    <p style="color: #888; margin-top: 0;">連線狀態：2人已就位 (1P 挑選中)</p>
+    <h1>三國貓對戰：AI 手勢辨識中</h1>
+    <button onclick="init()">啟動 AI 鏡頭</button>
+    <div id="status">請按下按鈕以啟用攝影機</div>
+    
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
 
-    <div class="select-container">
-        <!-- 上方預覽與數值 -->
-        <div class="preview-zone">
-            <!-- 1P 狀態欄 -->
-            <div class="player-box active-1p" id="p1-box">
-                <div style="position: absolute; top: 5px; left: 10px; color: #ff3e3e; font-weight: bold;">1P</div>
-                <div class="big-avatar-wrapper">
-                    <img id="p1-avatar" class="big-avatar" src="https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" alt="預覽">
-                </div>
-                <div class="status-panel">
-                    <h2 id="p1-name" style="margin: 0 0 10px 0; color: #ff3e3e;">呂布貓</h2>
-                    <div class="stat-row"><span class="stat-label">統率</span><div class="stat-bar-bg"><div id="bar-len" class="stat-bar-fill" style="width: 85%;"></div></div><span id="val-len" class="stat-value">85</span></div>
-                    <div class="stat-row"><span class="stat-label">武力</span><div class="stat-bar-bg"><div id="bar-mus" class="stat-bar-fill" style="width: 100%; background: #ff3e3e;"></div></div><span id="val-mus" class="stat-value">100</span></div>
-                    <div class="stat-row"><span class="stat-label">智力</span><div class="stat-bar-bg"><div id="bar-int" class="stat-bar-fill" style="width: 26%;"></div></div><span id="val-int" class="stat-value">26</span></div>
-                    <div class="stat-row"><span class="stat-label">政治</span><div class="stat-bar-bg"><div id="bar-pol" class="stat-bar-fill" style="width: 13%;"></div></div><span id="val-pol" class="stat-value">13</span></div>
-                    <div class="stat-row"><span class="stat-label">魅力</span><div class="stat-bar-bg"><div id="bar-cha" class="stat-bar-fill" style="width: 40%;"></div></div><span id="val-cha" class="stat-value">40</span></div>
-                </div>
-            </div>
-
-            <!-- 2P 狀態欄 (模擬同步) -->
-            <div class="player-box active-2p">
-                <div style="position: absolute; top: 5px; left: 10px; color: #3e8eff; font-weight: bold;">2P</div>
-                <div class="big-avatar-wrapper">
-                    <img class="big-avatar" src="https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/TsaoTsao.png" alt="2P">
-                </div>
-                <div class="status-panel">
-                    <h2 style="margin: 0 0 10px 0; color: #3e8eff;">曹操貓</h2>
-                    <div class="stat-row"><span class="stat-label">統率</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 98%; background: #3e8eff;"></div></div><span class="stat-value">98</span></div>
-                    <div class="stat-row"><span class="stat-label">武力</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 72%;"></div></div><span class="stat-value">72</span></div>
-                    <div class="stat-row"><span class="stat-label">智力</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 92%;"></div></div><span class="stat-value">92</span></div>
-                    <div class="stat-row"><span class="stat-label">政治</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 94%;"></div></div><span class="stat-value">94</span></div>
-                    <div class="stat-row"><span class="stat-label">魅力</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 91%;"></div></div><span class="stat-value">91</span></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 下方 2 x 5 九宮格 -->
-        <div class="character-grid" id="grid-container"></div>
+    <div class="battle-area">
+        <div id="hand-1" class="hand-slot">第 1 回合</div>
+        <div id="hand-2" class="hand-slot">第 2 回合</div>
+        <div id="hand-3" class="hand-slot">第 3 回合</div>
     </div>
 
-    <script>
-        // 核心資料庫：完美對應你的 GitHub Raw 圖片直連網址與大小寫副檔名
-        const catsData = {
-            "lubu": { name: "呂布貓", stats: [85, 100, 26, 13, 40], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" },
-            "kuanyu": { name: "關羽貓", stats: [93, 97, 75, 62, 93], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KuanYu.PNG" },
-            "changfei": { name: "張飛貓", stats: [83, 98, 33, 18, 45], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChangFei.PNG" },
-            "zhangyun": { name: "趙雲貓", stats: [91, 96, 76, 65, 95], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ZhangYun.png" },
-            "tsaotsao": { name: "曹操貓", stats: [98, 72, 92, 94, 91], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/TsaoTsao.png" },
-            "lubei": { name: "劉備貓", stats: [80, 73, 78, 80, 99], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LiuBei.PNG" },
-            "kongmin": { name: "諸葛亮貓", stats: [93, 38, 100, 96, 92], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KongMin.png" },
-            "choyu": { name: "周瑜貓", stats: [95, 71, 96, 86, 96], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChoYou.png" },
-            "simayi": { name: "司馬懿貓", stats: [97, 63, 97, 93, 70], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SiMaYi.png" },
-            "suntsu": { name: "孫策貓", stats: [92, 92, 70, 53, 92], img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SunTsu.png" }
-        };
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-        const gridContainer = document.getElementById('grid-container');
+    <script type="text/javascript">
+        // 核心設定：確保資料夾名稱為 my_model
+        const URL = "./my_model/";
+        let model, webcam, labelContainer, maxPredictions;
+        let playerHands = [];
 
-        // 動態渲染 2x5 街機格子
-        Object.keys(catsData).forEach(key => {
-            const cat = catsData[key];
-            const div = document.createElement('div');
-            div.className = 'grid-item';
-            div.innerHTML = `<img src="${cat.img}"><div class="char-name-tag">${cat.name}</div>`;
-            
-            // 滑鼠移過去，動態切換 1P 數據與 9:16 大圖
-            div.addEventListener('mouseenter', () => {
-                document.getElementById('p1-avatar').src = cat.img;
-                document.getElementById('p1-name').innerText = cat.name;
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                webcam = new tmImage.Webcam(200, 200, true);
+                await webcam.setup();
+                await webcam.play();
+                window.requestAnimationFrame(loop);
+
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                labelContainer = document.getElementById("label-container");
+                document.getElementById("status").innerHTML = "正在辨識手勢... 請做出剪刀、石頭或布";
+            } catch (err) {
+                alert("無法讀取模型，請檢查 my_model 資料夾是否存在正確檔案。");
+            }
+        }
+
+        async function loop() {
+            webcam.update();
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let best = prediction.reduce((prev, current) => (prev.probability > current.probability) ? prev : current);
+
+            // 當準確率超過 95% 且未滿 3 回合時自動記錄
+            if (best.probability > 0.95 && playerHands.length < 3) {
+                let turn = playerHands.length + 1;
+                playerHands.push(best.className);
+                document.getElementById(`hand-${turn}`).innerText = best.className;
                 
-                // 更新能力值條
-                document.getElementById('bar-len').style.width = cat.stats[0] + '%';
-                document.getElementById('bar-mus').style.width = cat.stats[1] + '%';
-                document.getElementById('bar-int').style.width = cat.stats[2] + '%';
-                document.getElementById('bar-pol').style.width = cat.stats[3] + '%';
-                document.getElementById('bar-cha').style.width = cat.stats[4] + '%';
-
-                // 更新數字數字
-                document.getElementById('val-len').innerText = cat.stats[0];
-                document.getElementById('val-mus').innerText = cat.stats[1];
-                document.getElementById('val-int').innerText = cat.stats[2];
-                document.getElementById('val-pol').innerText = cat.stats[3];
-                document.getElementById('val-cha').innerText = cat.stats[4];
-            });
-
-            gridContainer.appendChild(div);
-        });
+                // 暫停 2 秒，避免重複錄入同一回合
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
     </script>
 </body>
 </html>

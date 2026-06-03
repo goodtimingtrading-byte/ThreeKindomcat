@@ -2,81 +2,83 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三國貓對戰 - AI 訓練場</title>
+    <title>三國貓對戰 - Start</title>
     <style>
-        body { font-family: 'Arial', sans-serif; text-align: center; background: #2c3e50; color: white; padding: 20px; }
-        #webcam-container { margin: 20px auto; border: 5px solid #ecf0f1; border-radius: 15px; width: 200px; height: 200px; overflow: hidden; }
-        .battle-area { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
-        .hand-slot { width: 120px; height: 120px; border: 3px dashed #bdc3c7; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; background: rgba(255,255,255,0.1); }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #e74c3c; color: white; border: none; border-radius: 5px; }
-        #status { margin: 15px; font-size: 1.2rem; color: #f1c40f; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
+        #video-bg { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; }
+        .scene { display: none; position: absolute; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; color: white; }
+        .active { display: flex; }
+        .char-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 800px; }
+        .char-card { width: 100px; cursor: pointer; border: 3px solid transparent; }
+        .char-card:hover { border-color: gold; }
     </style>
 </head>
 <body>
 
-    <h1>三國貓對戰：AI 手勢辨識中</h1>
-    <button onclick="init()">啟動 AI 鏡頭</button>
-    <div id="status">請按下按鈕以啟用攝影機</div>
-    
-    <div id="webcam-container"></div>
-    <div id="label-container"></div>
+    <video id="video-bg" autoplay loop muted>
+        <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
+    </video>
 
-    <div class="battle-area">
-        <div id="hand-1" class="hand-slot">第 1 回合</div>
-        <div id="hand-2" class="hand-slot">第 2 回合</div>
-        <div id="hand-3" class="hand-slot">第 3 回合</div>
+    <div id="scene-start" class="scene active">
+        <h1>三國貓對戰</h1>
+        <input type="text" id="username" placeholder="輸入貓名">
+        <button onclick="enterLobby()">進入大廳</button>
+    </div>
+
+    <div id="scene-lobby" class="scene">
+        <h2>選擇您的貓武將</h2>
+        <div class="char-grid" id="char-list"></div>
+    </div>
+
+    <div id="scene-battle" class="scene">
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+        <h3>對戰中...</h3>
+        <div id="battle-log"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-    <script type="text/javascript">
-        // 核心設定：確保資料夾名稱為 my_model
-        const URL = "./my_model/";
-        let model, webcam, labelContainer, maxPredictions;
-        let playerHands = [];
+    <script>
+        const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
+        const charList = document.getElementById('char-list');
 
-        async function init() {
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
+        // 生成選角卡片
+        chars.forEach(c => {
+            const img = document.createElement('img');
+            img.src = `https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/${c}.png?raw=true`;
+            img.className = 'char-card';
+            img.onclick = () => startBattle(c);
+            charList.appendChild(img);
+        });
 
-            try {
-                model = await tmImage.load(modelURL, metadataURL);
-                maxPredictions = model.getTotalClasses();
-
-                webcam = new tmImage.Webcam(200, 200, true);
-                await webcam.setup();
-                await webcam.play();
-                window.requestAnimationFrame(loop);
-
-                document.getElementById("webcam-container").appendChild(webcam.canvas);
-                labelContainer = document.getElementById("label-container");
-                document.getElementById("status").innerHTML = "正在辨識手勢... 請做出剪刀、石頭或布";
-            } catch (err) {
-                alert("無法讀取模型，請檢查 my_model 資料夾是否存在正確檔案。");
-            }
+        function enterLobby() {
+            document.getElementById('scene-start').classList.remove('active');
+            document.getElementById('scene-lobby').classList.add('active');
         }
 
-        async function loop() {
+        function startBattle(charName) {
+            document.getElementById('scene-lobby').classList.remove('active');
+            document.getElementById('scene-battle').classList.add('active');
+            initAI(); // 初始化 AI 攝影機
+        }
+
+        // AI 邏輯 (整合你之前的 my_model)
+        async function initAI() {
+            const URL = "./my_model/";
+            const model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+            const webcam = new tmImage.Webcam(200, 200, true);
+            await webcam.setup(); await webcam.play();
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            loop(webcam, model);
+        }
+
+        async function loop(webcam, model) {
             webcam.update();
-            await predict();
-            window.requestAnimationFrame(loop);
-        }
-
-        async function predict() {
-            const prediction = await model.predict(webcam.canvas);
-            let best = prediction.reduce((prev, current) => (prev.probability > current.probability) ? prev : current);
-
-            // 當準確率超過 95% 且未滿 3 回合時自動記錄
-            if (best.probability > 0.95 && playerHands.length < 3) {
-                let turn = playerHands.length + 1;
-                playerHands.push(best.className);
-                document.getElementById(`hand-${turn}`).innerText = best.className;
-                
-                // 暫停 2 秒，避免重複錄入同一回合
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
+            const pred = await model.predict(webcam.canvas);
+            // 這裡後續對接 socket.emit
+            requestAnimationFrame(() => loop(webcam, model));
         }
     </script>
 </body>

@@ -1,12 +1,15 @@
 const WebSocket = require('ws');
-const PORT = process.env.PORT || 3000;
-const wss = new WebSocket.Server({ port: PORT });
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
-let players = [];
+console.log("伺服器已啟動");
+
 wss.on('connection', (ws) => {
-    if (players.length < 2) {
-        players.push(ws);
-        console.log("玩家連線，人數:", players.length);
-    }
-    ws.on('close', () => { players = players.filter(p => p !== ws); });
+    ws.on('message', (data) => {
+        // 廣播給所有連線者
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(data.toString());
+            }
+        });
+    });
 });

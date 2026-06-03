@@ -4,88 +4,69 @@
     <meta charset="UTF-8">
     <title>三國貓對戰</title>
     <style>
-        body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:sans-serif; background:#000; color:#fff; }
+        body, html { margin:0; width:100%; height:100%; overflow:hidden; background:#000; color:#fff; }
         .scene { display:none; width:100vw; height:100vh; position:absolute; flex-direction:column; align-items:center; justify-content:center; }
         .active { display:flex; }
-        
-        #video-bg { position:fixed; width:100%; height:100%; object-fit:cover; z-index:-1; }
-        #battle-bg { position:fixed; width:100%; height:100%; object-fit:cover; z-index:-1; }
-        
-        /* 放大選單字體 */
-        h1 { font-size: 5rem; text-shadow: 4px 4px 10px #000; }
-        #username { font-size: 3rem; padding: 20px; width: 500px; margin-bottom: 20px; text-align: center; }
-        button { font-size: 2.5rem; padding: 20px 40px; cursor:pointer; }
-
-        .char-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; background:rgba(0,0,0,0.6); padding:30px; border-radius:15px; }
-        .char-card { width:150px; height:150px; border:5px solid #fff; cursor:pointer; transition:0.3s; }
-        .char-card:hover { transform:scale(1.1); border-color:gold; }
-        
-        #battle-field { display:flex; justify-content:space-between; width:90%; align-items:center; z-index:1; }
-        .side { width:40%; text-align:center; background:rgba(0,0,0,0.5); padding:20px; border-radius:10px; }
-        .char-portrait { width:250px; height:250px; border:8px solid gold; margin-bottom:10px; }
+        h1 { font-size: 5rem; }
+        input { font-size: 3rem; width:500px; padding:20px; }
+        button { font-size: 2.5rem; padding:20px 40px; cursor:pointer; }
+        .char-card { width:150px; height:150px; border:5px solid #fff; cursor:pointer; }
+        #battle-field { display:flex; justify-content:space-between; width:90%; align-items:center; }
+        .side { width:40%; text-align:center; background:rgba(0,0,0,0.5); padding:20px; }
     </style>
 </head>
 <body>
-
-    <video id="video-bg" autoplay loop muted playsinline>
-        <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
-    </video>
-
     <div id="scene-start" class="scene active">
-        <button id="mute-btn" style="position:absolute; top:20px; right:20px;" onclick="toggleMute()">切換聲音</button>
+        <video id="video-bg" autoplay loop muted playsinline style="position:fixed; width:100%; height:100%; object-fit:cover; z-index:-1;">
+            <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
+        </video>
         <h1>三國貓對戰</h1>
         <input id="username" placeholder="輸入名稱">
         <button onclick="enterLobby()">進入大廳</button>
     </div>
 
     <div id="scene-lobby" class="scene">
-        <h2>等待大廳 - 請選擇您的武將</h2>
-        <div class="char-grid" id="char-list"></div>
-        <div id="player-list" style="margin-top:20px;"></div>
+        <h2>選擇武將</h2>
+        <div id="char-list"></div>
     </div>
 
     <div id="scene-battle" class="scene">
-        <img id="battle-bg" src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/background.png?raw=true">
         <div id="battle-field">
             <div class="side">
-                <img id="p1-char" class="char-portrait">
-                <h3 id="p1-name">我方</h3>
-                <div class="hand-input">
-                    <button onclick="submitMove('Rock')">石頭</button>
-                    <button onclick="submitMove('Paper')">布</button>
-                    <button onclick="submitMove('Scissor')">剪刀</button>
-                </div>
-                <div id="webcam-container" style="width:200px; height:200px; margin:20px auto;"></div>
+                <img id="p1-char" style="width:200px; height:200px;">
+                <div id="webcam-container"></div>
+                <button onclick="submitMove('Rock')">石頭</button>
+                <button onclick="submitMove('Paper')">布</button>
+                <button onclick="submitMove('Scissor')">剪刀</button>
             </div>
-            <div class="side">
-                <img id="p2-char" class="char-portrait">
-                <h3>敵方</h3>
-                <div id="p2-status">等待對手...</div>
-            </div>
+            <div class="side"><h3>敵方</h3></div>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.8.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
     <script>
-        const socket = io();
-        const video = document.getElementById('video-bg');
-        const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
-        
-        function toggleMute() { video.muted = !video.muted; }
-        
+        const socket = io("https://threekindomcat.onrender.com");
         function enterLobby() {
-            const name = document.getElementById('username').value;
-            if(!name) return alert("請輸入名稱");
-            socket.emit('joinRoom', 'lobby');
             document.getElementById('scene-start').className = 'scene';
             document.getElementById('scene-lobby').className = 'scene active';
             renderChars();
         }
-
         function renderChars() {
-            const list = document.getElementById('char-list');
-            list.innerHTML = "";
-            chars.forEach(c =>
+            ["Lubu", "KuanYu", "LiuBei", "TsaoTsao"].forEach(c => {
+                const img = document.createElement('img');
+                img.src = `https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/${c}.png?raw=true`;
+                img.className = 'char-card';
+                img.onclick = () => {
+                    document.getElementById('p1-char').src = img.src;
+                    document.getElementById('scene-lobby').className = 'scene';
+                    document.getElementById('scene-battle').className = 'scene active';
+                };
+                document.getElementById('char-list').appendChild(img);
+            });
+        }
+        function submitMove(m) { socket.emit('submitHands', { roomId: 'room1', hands: [m] }); }
+    </script>
+</body>
+</html>

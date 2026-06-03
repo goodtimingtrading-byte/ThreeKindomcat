@@ -3,50 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>三國貓武將：江山對決連線版</title>
+    <title>三國貓武將：江山對決</title>
     <style>
-        body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Arial', sans-serif; color: white; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
         
-        /* 影片背景層 */
-        .video-bg {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -1;
-        }
-
-        /* 統一介面佈局 */
-        .container { display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: flex-start; }
+        /* 影片背景 */
+        #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
+        
+        /* 遊戲層級 (確保永遠在影片上方) */
+        #game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; }
+        
+        /* 讓選角面板半透明，這樣才能看到後面的影片 */
+        .select-container { background: rgba(0,0,0,0.6); padding: 20px; border-radius: 15px; width: 90%; max-width: 800px; margin-top: 50px; }
+        
         .hidden { display: none !important; }
+        .start-btn { padding: 20px 40px; font-size: 24px; background: #d4af37; border: none; border-radius: 10px; cursor: pointer; margin-top: 20%; }
 
-        /* 選角介面 (透明化以顯示背景影片) */
-        .select-container { width: 95%; max-width: 900px; height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
-        .character-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px; }
-        
-        /* 戰鬥介面 (移除靜態背景圖，改用影片透明層) */
-        .battle-stage { position: relative; width: 100%; height: 50%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px; box-sizing: border-box; }
-        
-        /* (其餘戰鬥介面 CSS 與你之前設定的一致，請保留你原有的設定) */
-        /* ... 此處維持你原先的 .side-panel, .clash-arena 等 CSS ... */
+        /* 戰鬥畫面微調 */
+        #battle-screen { width: 100%; height: 100%; display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
 
-    <!-- 🎥 動態背景影片 -->
-    <video class="video-bg" autoplay loop muted playsinline>
+    <!-- 影片背景 -->
+    <video id="bg-video" loop playsinline>
         <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Threekindom%20cat%20opening.mp4" type="video/mp4">
     </video>
 
-    <!-- 介面內容與你之前的程式碼相同 (只需修改 CSS 背景部分) -->
-    <div id="select-screen" class="container">
-        <!-- 選角內容... -->
+    <div id="game-ui">
+        <!-- 點擊進入按鈕 (解鎖聲音) -->
+        <button id="start-btn" class="start-btn">進入遊戲 (開啟聲音)</button>
+
+        <!-- 選角介面 (隱藏直到進入) -->
+        <div id="select-screen" class="select-container hidden">
+            <h1 style="color:#d4af37;">請選擇貓武將</h1>
+            <div id="grid-container" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px;"></div>
+        </div>
+
+        <!-- 戰鬥介面 -->
+        <div id="battle-screen" class="hidden">
+            <!-- 原本的戰鬥 UI 放在這裡 -->
+        </div>
     </div>
 
     <script>
-        // 🎵 戰鬥專屬 BGM (維持原狀，切入戰鬥才播放)
-        const audioBattle = new Audio("https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Jade_and_Iron.mp3");
-        audioBattle.loop = true;
-        audioBattle.volume = 0.5;
+        const video = document.getElementById('bg-video');
+        const startBtn = document.getElementById('start-btn');
+        const selectScreen = document.getElementById('select-screen');
 
-        // WebSocket 邏輯 (維持原狀)...
-        // 在 START_GAME 階段呼叫 audioBattle.play()
+        // 點擊按鈕後：播放影片聲音 + 顯示選角畫面
+        startBtn.addEventListener('click', () => {
+            video.muted = false; // 開啟聲音
+            video.play();
+            startBtn.classList.add('hidden');
+            selectScreen.classList.remove('hidden');
+        });
+
+        // 其餘 WebSocket 與邏輯保持不變 (請延續你原本的 JS)
+        // ... (ws.onmessage, catsData 等邏輯)
     </script>
 </body>
 </html>

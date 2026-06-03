@@ -7,48 +7,70 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// 設定靜態檔案，確保 index.html 能正確讀取
+// 託管根目錄下的所有靜態檔案
 app.use(express.static(path.join(__dirname, '/')));
 
-let rooms = {};
+// 遊戲狀態儲存
+let rooms = {
+    'room1': { hands: {}, hp: { 'p1': 100, 'p2': 100 } }
+};
 
 io.on('connection', (socket) => {
-    socket.on('joinRoom', (roomId) => {
-        socket.join(roomId);
-        if (!rooms[roomId]) rooms[roomId] = { players: {}, hands: {}, hp: {} };
-        rooms[roomId].hp[socket.id] = 100;
-    });
+    console.log(`玩家已連線: ${socket.id}`);
 
+    // 接收出牌資料
     socket.on('submitHands', ({ roomId, hands }) => {
         if (!rooms[roomId]) return;
+        
+        // 將玩家的出牌儲存到後端，不直接廣播給對方
         rooms[roomId].hands[socket.id] = hands;
 
+        // 當兩人都出完牌，進行結算
         if (Object.keys(rooms[roomId].hands).length === 2) {
             const result = calculateBattle(rooms[roomId].hands, rooms[roomId].hp);
             io.to(roomId).emit('battleResult', result);
+            
+            // 清空出牌紀錄，準備下一回合
             rooms[roomId].hands = {};
             rooms[roomId].hp = result.newHp;
         }
     });
+
+    socket.on('disconnect', () => {
+        console.log(`玩家離線: ${socket.id}`);
+    });
 });
 
+// 後端戰鬥引擎：保證計算公平，防止前端作弊
 function calculateBattle(handsMap, hpMap) {
     const ids = Object.keys(handsMap);
-    const p1 = handsMap[ids[0]], p2 = handsMap[ids[1]];
-    let p1Wins = 0, p2Wins = 0;
+    const p1Move = handsMap[ids[0]][0];
+    const p2Move = handsMap[ids[1]][0];
+    
+    let winner = 'Draw';
+    let p1Hp = hpMap['p1'];
+    let p2Hp = hpMap['p2'];
 
-    for (let i = 0; i < 3; i++) {
-        if (p1[i] === p2[i]) continue;
-        if ((p1[i] === 'Rock' && p2[i] === 'Scissor') || 
-            (p1[i] === 'Scissor' && p2[i] === 'Paper') || 
-            (p1[i] === 'Paper' && p2[i] === 'Rock')) p1Wins++;
-        else p2Wins++;
+    // 剪刀石頭布勝負邏輯
+    if ((p1Move === 'Rock' && p2Move === 'Scissor') || 
+        (p1Move === 'Scissor' && p2Move === 'Paper') || 
+        (p1Move === 'Paper' && p2Move === 'Rock')) {
+        winner = ids[0];
+        p2Hp -= 10; // 輸家扣血
+    } else if (p1Move !== p2Move) {
+        winner = ids[1];
+        p1Hp -= 10;
     }
 
-    if (p1Wins > p2Wins) hpMap[ids[1]] -= 10;
-    else if (p2Wins > p1Wins) hpMap[ids[0]] -= 10;
-
-    return { winner: p1Wins > p2Wins ? ids[0] : (p2Wins > p1Wins ? ids[1] : 'Draw'), newHp: hpMap, p1Wins, p2Wins };
+    return { 
+        winner, 
+        newHp: { 'p1': p1Hp, 'p2': p2Hp },
+        p1Move, 
+        p2Move 
+    };
 }
 
-server.listen(process.env.PORT || 3000, () => console.log('Server running...'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`伺服器運行於 Port: ${PORT}`);
+});

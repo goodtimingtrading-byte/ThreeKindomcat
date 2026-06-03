@@ -1,84 +1,73 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>三國貓對戰 - Start</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
-        #video-bg { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; }
-        .scene { display: none; position: absolute; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; color: white; }
-        .active { display: flex; }
-        .char-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 800px; }
-        .char-card { width: 100px; cursor: pointer; border: 3px solid transparent; }
-        .char-card:hover { border-color: gold; }
+        body { margin:0; background:#2c3e50; color:white; text-align:center; }
+        .scene { display:none; height:100vh; flex-direction:column; justify-content:center; }
+        .active { display:flex; }
+        .char-card { width:100px; cursor:pointer; }
     </style>
 </head>
 <body>
-
-    <video id="video-bg" autoplay loop muted>
+    <video id="video-bg" autoplay loop muted style="position:fixed; z-index:-1; width:100%; object-fit:cover;">
         <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
     </video>
 
     <div id="scene-start" class="scene active">
         <h1>三國貓對戰</h1>
-        <input type="text" id="username" placeholder="輸入貓名">
-        <button onclick="enterLobby()">進入大廳</button>
+        <input id="username" placeholder="輸入名稱">
+        <button onclick="document.getElementById('scene-start').className='scene'; document.getElementById('scene-lobby').className='scene active';">進入大廳</button>
     </div>
 
     <div id="scene-lobby" class="scene">
-        <h2>選擇您的貓武將</h2>
-        <div class="char-grid" id="char-list"></div>
+        <div id="char-list"></div>
     </div>
 
     <div id="scene-battle" class="scene">
         <div id="webcam-container"></div>
-        <div id="label-container"></div>
-        <h3>對戰中...</h3>
-        <div id="battle-log"></div>
+        <div id="status">偵測中...</div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
     <script>
+        const socket = io();
         const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
-        const charList = document.getElementById('char-list');
-
-        // 生成選角卡片
+        
+        // 生成選角
         chars.forEach(c => {
             const img = document.createElement('img');
             img.src = `https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/${c}.png?raw=true`;
             img.className = 'char-card';
-            img.onclick = () => startBattle(c);
-            charList.appendChild(img);
+            img.onclick = () => { 
+                document.getElementById('scene-lobby').className='scene';
+                document.getElementById('scene-battle').className='scene active';
+                initAI(); 
+            };
+            document.getElementById('char-list').appendChild(img);
         });
 
-        function enterLobby() {
-            document.getElementById('scene-start').classList.remove('active');
-            document.getElementById('scene-lobby').classList.add('active');
-        }
-
-        function startBattle(charName) {
-            document.getElementById('scene-lobby').classList.remove('active');
-            document.getElementById('scene-battle').classList.add('active');
-            initAI(); // 初始化 AI 攝影機
-        }
-
-        // AI 邏輯 (整合你之前的 my_model)
         async function initAI() {
-            const URL = "./my_model/";
-            const model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+            const model = await tmImage.load("./my_model/model.json", "./my_model/metadata.json");
             const webcam = new tmImage.Webcam(200, 200, true);
             await webcam.setup(); await webcam.play();
             document.getElementById("webcam-container").appendChild(webcam.canvas);
-            loop(webcam, model);
-        }
-
-        async function loop(webcam, model) {
-            webcam.update();
-            const pred = await model.predict(webcam.canvas);
-            // 這裡後續對接 socket.emit
-            requestAnimationFrame(() => loop(webcam, model));
+            
+            let hands = [];
+            async function loop() {
+                webcam.update();
+                const pred = await model.predict(webcam.canvas);
+                let best = pred.reduce((p, c) => (p.probability > c.probability) ? p : c);
+                
+                if (best.probability > 0.95 && hands.length < 3) {
+                    hands.push(best.className);
+                    if(hands.length === 3) socket.emit('submitHands', { hands });
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
         }
     </script>
 </body>

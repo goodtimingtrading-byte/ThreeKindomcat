@@ -3,68 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: white; font-family: sans-serif; }
-        #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
-        #game-ui { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
-        .select-container { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; width: 90%; max-width: 600px; text-align: center; }
-        .character-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; }
-        .grid-item { border: 2px solid #555; cursor: pointer; transition: 0.2s; }
-        .grid-item img { width: 100%; display: block; }
-        .start-btn { padding: 20px 40px; font-size: 24px; background: #d4af37; border: none; border-radius: 10px; cursor: pointer; }
-        #lock-btn { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+        body { margin: 0; background: #000; color: #fff; overflow: hidden; font-family: sans-serif; }
+        #bg-video { position: fixed; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
+        #ui { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; padding-top: 50px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 120px); gap: 10px; }
+        .item { width: 120px; height: 120px; border: 2px solid #555; cursor: pointer; background: #222; }
+        .item img { width: 100%; height: 100%; object-fit: cover; }
+        .item.selected { border-color: #d4af37; }
     </style>
 </head>
 <body>
-    <video id="bg-video" loop playsinline><source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Threekindom%20cat%20opening.mp4" type="video/mp4"></video>
-    <div id="game-ui">
-        <button id="start-btn" class="start-btn">進入遊戲</button>
-        <div id="select-screen" class="select-container hidden">
-            <h2 style="margin:0;">請選擇貓武將</h2>
-            <div id="grid-container" class="character-grid"></div>
-            <div id="status-area">點擊武將進行選擇</div>
-            <button id="lock-btn" disabled>確認鎖定武將</button>
+    <video id="bg-video" loop playsinline autoplay muted>
+        <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/main/Threekindom%20cat%20opening.mp4" type="video/mp4">
+    </video>
+    <div id="ui">
+        <button id="start" style="padding:20px;">進入遊戲</button>
+        <div id="select" style="display:none; text-align:center;">
+            <div id="grid" class="grid"></div>
+            <p id="status">等待對手加入...</p>
+            <button id="lock" disabled>確認鎖定武將</button>
         </div>
     </div>
-
     <script>
         const ws = new WebSocket("wss://threekindomcat.onrender.com");
-        ws.onopen = () => console.log("連線成功");
-        ws.onerror = (e) => console.error("連線錯誤", e);
+        const cats = ["LuBu", "KuanYu", "ChangFei", "ZhangYun", "TsaoTsao", "LiuBe", "KongMin", "ChoYou", "SiMaYi", "SunTsu"];
+        let selected = null;
 
-        const cats = {
-            "lubu": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png",
-            "kuanyu": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KuanYu.png",
-            "changfei": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChangFei.png",
-            "zhangyun": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ZhangYun.png",
-            "tsaotsao": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/TsaoTsao.png",
-            "lubei": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LiuBe.png",
-            "kongmin": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KongMin.png",
-            "choyu": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChoYou.png",
-            "simayi": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SiMaYi.png",
-            "suntsu": "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SunTsu.png"
-        };
-
-        document.getElementById('start-btn').onclick = function() {
+        document.getElementById('start').onclick = function() {
             document.getElementById('bg-video').muted = false;
-            document.getElementById('bg-video').play();
-            this.classList.add('hidden');
-            document.getElementById('select-screen').classList.remove('hidden');
+            this.style.display = 'none';
+            document.getElementById('select').style.display = 'block';
         };
 
-        Object.keys(cats).forEach(key => {
+        cats.forEach(n => {
             const div = document.createElement('div');
-            div.className = 'grid-item';
-            div.innerHTML = `<img src="${cats[key]}">`;
+            div.className = 'item';
+            div.innerHTML = `<img src="https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/${n}.png">`;
             div.onclick = () => {
-                document.getElementById('lock-btn').disabled = false;
-                document.getElementById('status-area').innerText = "已選定，請鎖定";
+                document.querySelectorAll('.item').forEach(i => i.classList.remove('selected'));
+                div.classList.add('selected');
+                selected = n;
+                document.getElementById('lock').disabled = false;
             };
-            document.getElementById('grid-container').appendChild(div);
+            document.getElementById('grid').appendChild(div);
         });
 
-        document.getElementById('lock-btn').onclick = () => {
-            document.getElementById('status-area').innerText = "等待對手加入...";
-            document.getElementById('lock-btn').disabled = true;
+        document.getElementById('lock').onclick = () => {
+            ws.send(JSON.stringify({ type: 'lock', char: selected }));
+            document.getElementById('status').innerText = "已鎖定！等待配對...";
+            document.getElementById('lock').disabled = true;
+        };
+
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if(data.type === 'lock') document.getElementById('status').innerText = "對手已就位，準備開始！";
         };
     </script>
 </body>

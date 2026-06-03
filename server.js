@@ -1,3 +1,14 @@
+const WebSocket = require('ws');
+// 關鍵修正：確保伺服器會使用 Render 提供的 Port，否則會啟動失敗
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: PORT });
+
+console.log(`⚔️ 三國貓武將伺服器已啟動於 Port: ${PORT}...`);
+
+// 以下保持你原先穩定的遊戲邏輯，無需變動
+// (請確保原本的 gameState, settleRound, broadcast 等函式都在此下方)
+
+
 // server.js (防幽靈連線、穩定雙人配對完全體)
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 3000 });

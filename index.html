@@ -6,43 +6,39 @@
     <title>三國貓武將：江山對決</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
-        
-        /* 影片背景 */
         #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
         
-        /* 遊戲層級 (確保永遠在影片上方) */
-        #game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; }
-        
-        /* 讓選角面板半透明，這樣才能看到後面的影片 */
-        .select-container { background: rgba(0,0,0,0.6); padding: 20px; border-radius: 15px; width: 90%; max-width: 800px; margin-top: 50px; }
+        /* 確保 UI 層級在影片上方 */
+        #game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
         .hidden { display: none !important; }
-        .start-btn { padding: 20px 40px; font-size: 24px; background: #d4af37; border: none; border-radius: 10px; cursor: pointer; margin-top: 20%; }
+        .start-btn { padding: 20px 40px; font-size: 24px; background: #d4af37; border: none; border-radius: 10px; cursor: pointer; }
 
-        /* 戰鬥畫面微調 */
-        #battle-screen { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        /* 選角面板樣式 */
+        .select-container { background: rgba(0,0,0,0.7); padding: 20px; border-radius: 15px; width: 90%; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
+        .character-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; margin-top: 10px; }
+        .grid-item { aspect-ratio: 1/1; background: #333; border: 2px solid #555; border-radius: 6px; cursor: pointer; overflow: hidden; position: relative; }
+        .grid-item img { width: 100%; height: 100%; object-fit: cover; }
+        .char-name-tag { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); text-align: center; font-size: 10px; }
     </style>
 </head>
 <body>
 
-    <!-- 影片背景 -->
     <video id="bg-video" loop playsinline>
         <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Threekindom%20cat%20opening.mp4" type="video/mp4">
     </video>
 
     <div id="game-ui">
-        <!-- 點擊進入按鈕 (解鎖聲音) -->
         <button id="start-btn" class="start-btn">進入遊戲 (開啟聲音)</button>
 
-        <!-- 選角介面 (隱藏直到進入) -->
         <div id="select-screen" class="select-container hidden">
-            <h1 style="color:#d4af37;">請選擇貓武將</h1>
-            <div id="grid-container" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px;"></div>
+            <h2 style="color:#d4af37; margin:0;">選擇貓武將</h2>
+            <div id="grid-container" class="character-grid"></div>
+            <button id="lock-btn" style="margin-top:15px;" disabled>確認鎖定武將</button>
         </div>
 
-        <!-- 戰鬥介面 -->
-        <div id="battle-screen" class="hidden">
-            <!-- 原本的戰鬥 UI 放在這裡 -->
+        <div id="battle-screen" class="hidden" style="width:100%; height:100%;">
+            <!-- 戰鬥 UI 區塊 (維持你原本的戰鬥介面結構) -->
         </div>
     </div>
 
@@ -50,17 +46,40 @@
         const video = document.getElementById('bg-video');
         const startBtn = document.getElementById('start-btn');
         const selectScreen = document.getElementById('select-screen');
+        const grid = document.getElementById('grid-container');
 
-        // 點擊按鈕後：播放影片聲音 + 顯示選角畫面
+        // 資料與初始化邏輯
+        const catsData = {
+            "lubu": { name: "呂布貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" },
+            "kuanyu": { name: "關羽貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KuanYu.png" },
+            "changfei": { name: "張飛貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChangFei.png" },
+            "zhangyun": { name: "趙雲貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ZhangYun.png" },
+            "tsaotsao": { name: "曹操貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/TsaoTsao.png" },
+            "lubei": { name: "劉備貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LiuBe.png" },
+            "kongmin": { name: "諸葛亮貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KongMin.png" },
+            "choyu": { name: "周瑜貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChoYou.png" },
+            "simayi": { name: "司馬懿貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SiMaYi.png" },
+            "suntsu": { name: "孫策貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SunTsu.png" }
+        };
+
+        // 綁定 UI 渲染
         startBtn.addEventListener('click', () => {
-            video.muted = false; // 開啟聲音
+            video.muted = false;
             video.play();
             startBtn.classList.add('hidden');
             selectScreen.classList.remove('hidden');
+            
+            // 確保網格渲染
+            Object.keys(catsData).forEach(key => {
+                const cat = catsData[key];
+                const div = document.createElement('div');
+                div.className = 'grid-item';
+                div.innerHTML = `<img src="${cat.img}"><div class="char-name-tag">${cat.name}</div>`;
+                grid.appendChild(div);
+            });
         });
-
-        // 其餘 WebSocket 與邏輯保持不變 (請延續你原本的 JS)
-        // ... (ws.onmessage, catsData 等邏輯)
+        
+        // 此處請接上你原本的 WebSocket 連線邏輯
     </script>
 </body>
 </html>

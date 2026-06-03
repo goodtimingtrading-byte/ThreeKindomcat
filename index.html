@@ -1,74 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
+    <meta charset="UTF-8">
+    <title>三國貓對戰</title>
     <style>
-        body { margin:0; background:#2c3e50; color:white; text-align:center; }
-        .scene { display:none; height:100vh; flex-direction:column; justify-content:center; }
-        .active { display:flex; }
-        .char-card { width:100px; cursor:pointer; }
+        /* 基礎設定 */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        
+        /* 背景影片層：確保它永遠在最底層 */
+        #video-bg { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            object-fit: cover; z-index: -1; 
+        }
+
+        /* 場景區塊設定 */
+        .scene { display: none; width: 100vw; height: 100vh; align-items: center; justify-content: center; flex-direction: column; color: white; }
+        .active { display: flex; }
+
+        /* 選角格線系統 */
+        .char-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 15px; }
+        .char-card { width: 120px; height: 120px; object-fit: cover; cursor: pointer; border: 3px solid white; transition: 0.3s; }
+        .char-card:hover { transform: scale(1.1); border-color: gold; }
     </style>
 </head>
 <body>
-    <video id="video-bg" autoplay loop muted style="position:fixed; z-index:-1; width:100%; object-fit:cover;">
+
+    <video id="video-bg" autoplay loop muted playsinline>
         <source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/Threekindom%20cat%20opening.mp4?raw=true" type="video/mp4">
     </video>
 
     <div id="scene-start" class="scene active">
-        <h1>三國貓對戰</h1>
-        <input id="username" placeholder="輸入名稱">
+        <h1 style="text-shadow: 2px 2px 10px black;">三國貓對戰</h1>
         <button onclick="document.getElementById('scene-start').className='scene'; document.getElementById('scene-lobby').className='scene active';">進入大廳</button>
     </div>
 
     <div id="scene-lobby" class="scene">
-        <div id="char-list"></div>
+        <h2>選擇您的貓武將</h2>
+        <div class="char-grid" id="char-list"></div>
     </div>
 
     <div id="scene-battle" class="scene">
         <div id="webcam-container"></div>
-        <div id="status">偵測中...</div>
+        <div id="status" style="background:rgba(0,0,0,0.7); padding:10px;">請將鏡頭對準手勢</div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
     <script>
-        const socket = io();
         const chars = ["Lubu", "KuanYu", "LiuBei", "TsaoTsao", "KongMin", "SiMaYi", "SunTsu", "ZhangYun"];
-        
-        // 生成選角
+        const charList = document.getElementById('char-list');
+
+        // 動態生成選角卡片
         chars.forEach(c => {
             const img = document.createElement('img');
             img.src = `https://github.com/goodtimingtrading-byte/ThreeKindomcat/blob/main/${c}.png?raw=true`;
             img.className = 'char-card';
-            img.onclick = () => { 
-                document.getElementById('scene-lobby').className='scene';
-                document.getElementById('scene-battle').className='scene active';
-                initAI(); 
+            img.onclick = () => {
+                document.getElementById('scene-lobby').className = 'scene';
+                document.getElementById('scene-battle').className = 'scene active';
+                // 這裡觸發你的 initAI()
             };
-            document.getElementById('char-list').appendChild(img);
+            charList.appendChild(img);
         });
-
-        async function initAI() {
-            const model = await tmImage.load("./my_model/model.json", "./my_model/metadata.json");
-            const webcam = new tmImage.Webcam(200, 200, true);
-            await webcam.setup(); await webcam.play();
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
-            
-            let hands = [];
-            async function loop() {
-                webcam.update();
-                const pred = await model.predict(webcam.canvas);
-                let best = pred.reduce((p, c) => (p.probability > c.probability) ? p : c);
-                
-                if (best.probability > 0.95 && hands.length < 3) {
-                    hands.push(best.className);
-                    if(hands.length === 3) socket.emit('submitHands', { hands });
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-                requestAnimationFrame(loop);
-            }
-            loop();
-        }
     </script>
 </body>
 </html>

@@ -2,71 +2,78 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>三國貓武將：江山對決</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: white; }
-        #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; }
-        #game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        body { margin: 0; height: 100vh; overflow: hidden; background: #000; color: white; font-family: sans-serif; }
+        
+        /* 影片背景 */
+        #bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; }
+        
+        /* 遊戲 UI 層 (最上層) */
+        #game-ui { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        
+        /* 容器層：半透明黑色背景 */
+        .select-container { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; width: 80%; max-width: 600px; text-align: center; }
+        
+        /* 選角區 */
+        .character-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; }
+        .grid-item { border: 2px solid #555; cursor: pointer; }
+        .grid-item img { width: 100%; display: block; }
+        
+        /* 絕對位置：明確分開按鈕與提示 */
+        #status-area { margin-top: 10px; font-size: 18px; color: #ffcc00; min-height: 25px; }
+        #lock-btn { padding: 15px 30px; font-size: 18px; background: #d4af37; border: none; cursor: pointer; z-index: 20; }
+        #lock-btn:disabled { background: #555; cursor: not-allowed; }
+        
         .hidden { display: none !important; }
-        .start-btn { padding: 20px 40px; font-size: 24px; background: #d4af37; border: none; border-radius: 10px; cursor: pointer; }
-        .select-container { background: rgba(0,0,0,0.7); padding: 20px; border-radius: 15px; width: 90%; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
-        .character-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; margin-top: 10px; }
-        .grid-item { aspect-ratio: 1/1; background: #333; border: 2px solid #555; border-radius: 6px; cursor: pointer; position: relative; transition: 0.2s; }
-        .grid-item:hover { border-color: #d4af37; }
-        .grid-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
-        .char-name-tag { font-size: 10px; text-align: center; margin-top: 2px; }
     </style>
 </head>
 <body>
     <video id="bg-video" loop playsinline><source src="https://github.com/goodtimingtrading-byte/ThreeKindomcat/raw/refs/heads/main/Threekindom%20cat%20opening.mp4" type="video/mp4"></video>
+
     <div id="game-ui">
-        <button id="start-btn" class="start-btn">進入遊戲</button>
+        <button id="start-btn" class="start-btn">進入遊戲 (開啟聲音)</button>
+        
         <div id="select-screen" class="select-container hidden">
-            <h2 style="color:#d4af37; margin-top:0;">請選擇貓武將</h2>
+            <h2 style="margin:0;">請選擇貓武將</h2>
             <div id="grid-container" class="character-grid"></div>
-            <button id="lock-btn" style="margin-top:15px;" disabled>確認鎖定武將</button>
+            
+            <div id="status-area">等待對手加入...</div>
+            
+            <button id="lock-btn" disabled>確認鎖定武將</button>
         </div>
-        <div id="battle-screen" class="hidden"></div>
     </div>
 
     <script>
-        const video = document.getElementById('bg-video');
         const startBtn = document.getElementById('start-btn');
         const selectScreen = document.getElementById('select-screen');
         const grid = document.getElementById('grid-container');
         const lockBtn = document.getElementById('lock-btn');
+        const statusArea = document.getElementById('status-area');
+        const video = document.getElementById('bg-video');
 
-        const catsData = {
-            "lubu": { name: "呂布貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LuBu.png" },
-            "kuanyu": { name: "關羽貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KuanYu.png" },
-            "changfei": { name: "張飛貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChangFei.png" },
-            "zhangyun": { name: "趙雲貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ZhangYun.png" },
-            "tsaotsao": { name: "曹操貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/TsaoTsao.png" },
-            "lubei": { name: "劉備貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/LiuBe.png" },
-            "kongmin": { name: "諸葛亮貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/KongMin.png" },
-            "choyu": { name: "周瑜貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/ChoYou.png" },
-            "simayi": { name: "司馬懿貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SiMaYi.png" },
-            "suntsu": { name: "孫策貓", img: "https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/SunTsu.png" }
-        };
-
-        startBtn.addEventListener('click', () => {
+        startBtn.onclick = () => {
             video.muted = false; video.play();
             startBtn.classList.add('hidden');
             selectScreen.classList.remove('hidden');
-            
-            // 渲染邏輯與事件綁定同步完成
-            Object.keys(catsData).forEach(key => {
-                const div = document.createElement('div');
-                div.className = 'grid-item';
-                div.innerHTML = `<img src="${catsData[key].img}"><div class="char-name-tag">${catsData[key].name}</div>`;
-                div.onclick = () => { 
-                    lockBtn.disabled = false;
-                    document.querySelectorAll('.grid-item').forEach(el => el.style.borderColor = '#555');
-                    div.style.borderColor = '#d4af37';
-                };
-                grid.appendChild(div);
-            });
+        };
+
+        // 渲染武將 (確保點擊能正常運作)
+        const cats = ["lubu", "kuanyu", "changfei", "zhangyun", "tsaotsao", "lubei", "kongmin", "choyu", "simayi", "suntsu"];
+        cats.forEach(key => {
+            const div = document.createElement('div');
+            div.className = 'grid-item';
+            div.innerHTML = `<img src="https://raw.githubusercontent.com/goodtimingtrading-byte/ThreeKindomcat/main/${key.charAt(0).toUpperCase() + key.slice(1)}.png">`;
+            div.onclick = () => {
+                lockBtn.disabled = false;
+                statusArea.innerText = "已選定武將，請按下鎖定...";
+            };
+            grid.appendChild(div);
         });
+        
+        lockBtn.onclick = () => {
+            lockBtn.disabled = true;
+            statusArea.innerText = "已鎖定！等待對手加入戰局...";
+        };
     </script>
 </body>
 </html>
